@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 // writeGenerated 写入一个生成文件。
@@ -31,6 +32,26 @@ func jsString(s string) string {
 func moduleRef(pkgName, module string) string {
 	module = strings.TrimPrefix(module, "./")
 	return "./services/" + pkgName + "/" + module
+}
+
+func componentIdent(prefix, pkgName, suffix string) string {
+	var b strings.Builder
+	b.WriteString(prefix)
+	upperNext := true
+	for _, r := range pkgName {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			if upperNext {
+				r = unicode.ToUpper(r)
+			}
+			b.WriteRune(r)
+			upperNext = false
+		default:
+			upperNext = true
+		}
+	}
+	b.WriteString(suffix)
+	return b.String()
 }
 
 // writeSDKManifest 生成 sdk-manifest.ts：
@@ -102,7 +123,7 @@ func writeSDKRoutes(dir string, sdks []*Sdk) error {
 	for _, sdk := range sdks {
 		for i, r := range sdk.Manifest.Routes {
 			// 组件名：服务名+序号，保证唯一且为合法标识符。
-			ident := sdk.Name + "_" + fmt.Sprintf("%d", i)
+			ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
 			b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(sdk.Name, r.Module)) + "));\n")
 		}
 	}
@@ -112,7 +133,7 @@ func writeSDKRoutes(dir string, sdks []*Sdk) error {
 	b.WriteString("export const sdkRouteElements: ReactNode[] = [\n")
 	for _, sdk := range sdks {
 		for i, r := range sdk.Manifest.Routes {
-			ident := sdk.Name + "_" + fmt.Sprintf("%d", i)
+			ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
 			b.WriteString("  <Suspense key=" + jsString(sdk.Name+"-"+r.Path) + " fallback={<SdkRouteFallback />}>\n")
 			b.WriteString("    <Route path=" + jsString(r.Path) + " element={<" + ident + " />} />\n")
 			b.WriteString("  </Suspense>,\n")
@@ -124,7 +145,7 @@ func writeSDKRoutes(dir string, sdks []*Sdk) error {
 	b.WriteString("export const sdkRoutes: RouteObject[] = [\n")
 	for _, sdk := range sdks {
 		for i, r := range sdk.Manifest.Routes {
-			ident := sdk.Name + "_" + fmt.Sprintf("%d", i)
+			ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
 			b.WriteString("  {\n")
 			b.WriteString("    path: " + jsString(r.Path) + ",\n")
 			b.WriteString("    element: (\n")
@@ -182,7 +203,7 @@ func writeSDKDashboard(dir string, sdks []*Sdk) error {
 			// dashboard.path 已校验引用本包 routes；防御性兜底。
 			continue
 		}
-		ident := sdk.Name + "_dash"
+		ident := componentIdent("SdkDash", sdk.Name, "")
 		b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(m.Name, mod)) + "));\n")
 	}
 	b.WriteString("\n")
@@ -196,7 +217,7 @@ func writeSDKDashboard(dir string, sdks []*Sdk) error {
 		if mod == "" {
 			continue
 		}
-		ident := sdk.Name + "_dash"
+		ident := componentIdent("SdkDash", sdk.Name, "")
 		b.WriteString("  {\n")
 		b.WriteString("    key: " + jsString(m.Name) + ",\n")
 		b.WriteString("    label: " + jsString(m.Dashboard.Label) + ",\n")

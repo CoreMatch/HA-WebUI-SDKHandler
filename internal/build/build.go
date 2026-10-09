@@ -96,6 +96,9 @@ func Run(opts Options) *Result {
 	}
 	if sr := runStep(ctx, opts, "npm install", opts.NPMCommand, installArgs...); !sr.OK {
 		opts.Logf("[build] npm install 失败")
+			if sr.Log != "" {
+				opts.Logf("[build] npm install 输出:\n%s", sr.Log)
+			}
 		res.OK = false
 		res.Steps = append(res.Steps, sr)
 		res.Err = sr.Err
@@ -111,6 +114,9 @@ func Run(opts Options) *Result {
 	if useNpmBuild {
 		if sr := runStep(ctx, opts, "npm run build", opts.NPMCommand, "run", "build"); !sr.OK {
 			opts.Logf("[build] npm run build 失败")
+				if sr.Log != "" {
+					opts.Logf("[build] npm run build 输出:\n%s", sr.Log)
+				}
 			res.OK = false
 			res.Steps = append(res.Steps, sr)
 			res.Err = sr.Err
@@ -123,6 +129,9 @@ func Run(opts Options) *Result {
 		tsc := opts.NPMCommand
 		if sr := runStep(ctx, opts, "tsc -b", tsc, "exec", "tsc", "-b"); !sr.OK {
 			opts.Logf("[build] tsc -b 失败")
+				if sr.Log != "" {
+					opts.Logf("[build] tsc -b 输出:\n%s", sr.Log)
+				}
 			res.OK = false
 			res.Steps = append(res.Steps, sr)
 			res.Err = sr.Err
@@ -132,6 +141,9 @@ func Run(opts Options) *Result {
 		}
 		if sr := runStep(ctx, opts, "vite build", opts.NPMCommand, "exec", "vite", "build"); !sr.OK {
 			opts.Logf("[build] vite build 失败")
+				if sr.Log != "" {
+					opts.Logf("[build] vite build 输出:\n%s", sr.Log)
+				}
 			res.OK = false
 			res.Steps = append(res.Steps, sr)
 			res.Err = sr.Err

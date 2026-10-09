@@ -10,6 +10,7 @@
 package broker
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -30,7 +31,9 @@ type SdkPackageMeta struct {
 	Version      string   `json:"version"`
 	SHA256       string   `json:"sha256"`
 	RunScripts   bool     `json:"run_scripts"`
-	Routes       []string `json:"routes,omitempty"` // 可选：仅用于诊断
+	// Routes 仅用于诊断，形态由宿主契约决定（当前为对象数组），因此使用
+	// RawMessage 宽容接收，避免列表解析因诊断字段变化而失败。
+	Routes       []json.RawMessage `json:"routes,omitempty"`
 	RegisteredAt string   `json:"registered_at,omitempty"`
 }
 
@@ -201,8 +204,15 @@ func (c *Client) Download(name string) (string, string, error) {
 		return "", "", fmt.Errorf("下载 SDK 包 %s 响应异常 status=%d body=%s", name, resp.StatusCode, truncate(string(body), 512))
 	}
 
+	reader := bufio.NewReader(resp.Body)
+	header, _ := reader.Peek(4)
+	suffix, err := archiveSuffix(header)
+	if err != nil {
+		return "", "", fmt.Errorf("识别 SDK 包 %s 归档格式失败: %w", name, err)
+	}
+
 	// 写入缓存目录，带 sha256 摘要校验（若响应头或 meta 提供）。
-	dest := filepath.Join(c.cacheDir, name)
+	dest := filepath.Join(c.cacheDir, name+suffix)
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", "", fmt.Errorf("创建缓存目录失败: %w", err)
 	}
@@ -212,7 +222,7 @@ func (c *Client) Download(name string) (string, string, error) {
 		return "", "", fmt.Errorf("创建缓存文件失败: %w", err)
 	}
 	defer func() { _ = f.Close() }()
-	_, err = io.Copy(io.MultiWriter(f, hasher), resp.Body)
+	_, err = io.Copy(io.MultiWriter(f, hasher), reader)
 	if err != nil {
 		return "", "", fmt.Errorf("写入缓存文件失败: %w", err)
 	}
@@ -222,6 +232,16 @@ func (c *Client) Download(name string) (string, string, error) {
 
 // CacheDir 返回包缓存目录。
 func (c *Client) CacheDir() string { return c.cacheDir }
+
+func archiveSuffix(header []byte) (string, error) {
+	if len(header) >= 2 && header[0] == 0x1f && header[1] == 0x8b {
+		return ".tar.gz", nil
+	}
+	if len(header) >= 4 && header[0] == 'P' && header[1] == 'K' && header[2] == 0x03 && header[3] == 0x04 {
+		return ".zip", nil
+	}
+	return "", fmt.Errorf("未知归档头: %x", header)
+}
 
 func truncate(s string, n int) string {
 	if len(s) <= n {
