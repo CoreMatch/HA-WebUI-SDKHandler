@@ -1,0 +1,32 @@
+# HA-WebUI-SDKHandler 配置示例
+# 复制为 config.yaml 并按实际环境修改。
+#
+# 职责：从 HRPAuth 主服务轮询拉取 SDK 源码头包，全量注入前端模板，
+#       聚合生成静态前端并编译，成功后原子发布。
+
+server:
+  listen_addr: ":8200"
+
+# HRPAuth 主服务连接（唯一 SDK 来源，绝不直接访问卫星服务）
+hrpauth:
+  base_url: "http://127.0.0.1:8080"
+  ops_token: ""            # 必填：请求 HRPAuth 时携带的 Ops token（Authorization: Bearer）
+  poll_interval_seconds: 60
+
+build:
+  # 前端模板仓库路径（只读，每次构建全量复制）。例如 HRPAuth-Web 仓库位置：
+  template_dir: "/home/lnb/Desktop/HA/HRPAuth-Web"
+  work_dir: "./frontend-build"          # 每次构建的工作目录（会反复重建）
+  artifacts_dir: "./artifacts"          # 带版本号的产物根目录
+  current_link: "./current"             # 当前生效产物的指针（symlink）
+  npm_command: "npm"
+  # npm 黑名单：精确包名，依赖合并时命中任一包名则本次构建直接失败。
+  # 无论 run_scripts 如何，命中黑名单即拒绝。
+  npm_blacklist: []
+  ignore_scripts_default: true          # 默认以 --ignore-scripts 安装，包声明 run_scripts:true 除外
+
+state_dir: "./state"
+
+# 是否由本服务静态托管 current_link 产物（GET / 与静态文件）。
+# 默认 false：当前阶段只提供 API，前端产物由其他 Web 服务器托管。
+serve_artifacts: false

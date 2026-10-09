@@ -1,0 +1,21 @@
+# 依赖与构建产物
+node_modules/
+frontend-build/
+dist/
+artifacts/
+state/
+current/
+
+# Go 编译产物
+*.exe
+*.out
+*.test
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+
+# 环境与密钥
+.env
+*.local
