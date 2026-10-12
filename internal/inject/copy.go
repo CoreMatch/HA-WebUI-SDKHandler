@@ -12,17 +12,17 @@ import (
 // 版本控制、构建产物、缓存与本次工作目录本身。
 // 注意：node_modules 不再排除，因为它应该在拉取模板后安装一次，并随模板复制到工作目录。
 var copyExcluded = map[string]bool{
-	".git":            true,
-	"dist":            true,
-	"frontend-build":  true,
-	"artifacts":       true,
-	"state":           true,
-	"current":         true,
-	".next":           true,
-	".turbo":          true,
-	"out":             true,
-	".DS_Store":       true,
-	"Thumbs.db":       true,
+	".git":           true,
+	"dist":           true,
+	"frontend-build": true,
+	"artifacts":      true,
+	"state":          true,
+	"current":        true,
+	".next":          true,
+	".turbo":         true,
+	"out":            true,
+	".DS_Store":      true,
+	"Thumbs.db":      true,
 }
 
 // CopyTemplate 把模板目录全量复制到 workDir。
@@ -65,8 +65,15 @@ func CopyTemplate(templateDir, workDir string) error {
 			return os.MkdirAll(dest, 0o755)
 		}
 		if d.Type()&os.ModeSymlink != 0 {
-			// 模板中的 symlink 一律跳过，避免把宿主路径带入生成产物。
-			return nil
+			// 模板中的 symlink：如果是相对路径则保留，避免把宿主绝对路径带入生成产物。
+			target, err := os.Readlink(path)
+			if err != nil {
+				return fmt.Errorf("读取符号链接失败: %w", err)
+			}
+			if filepath.IsAbs(target) {
+				return nil
+			}
+			return os.Symlink(target, dest)
 		}
 		return copyFile(path, dest)
 	})
