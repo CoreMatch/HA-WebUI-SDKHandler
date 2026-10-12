@@ -61,10 +61,10 @@ type Options struct {
 // Inject 执行完整注入流程：解包 -> 校验 -> 依赖合并 -> 生成四文件。
 func Inject(opts Options) (*Result, error) {
 	res := &Result{
-		WorkDir:            opts.WorkDir,
-		ManifestSums:       map[string]string{},
-		ValidationResults:  map[string][]string{},
-		SDKVersion:         "empty",
+		WorkDir:           opts.WorkDir,
+		ManifestSums:      map[string]string{},
+		ValidationResults: map[string][]string{},
+		SDKVersion:        "empty",
 	}
 
 	// 1. 解包每个 SDK 到 work_dir/src/generated/services/<name>/。
@@ -97,6 +97,9 @@ func Inject(opts Options) (*Result, error) {
 		if err := extractArchive(archivePath, svcDir); err != nil {
 			return nil, fmt.Errorf("解包 SDK %s 失败: %w", name, err)
 		}
+		if err := RewriteHostImports(opts.WorkDir, svcDir); err != nil {
+			return nil, fmt.Errorf("重写 SDK %s 的宿主 import 失败: %w", name, err)
+		}
 
 		mf, err := readManifest(svcDir)
 		if err != nil {
@@ -120,11 +123,11 @@ func Inject(opts Options) (*Result, error) {
 		}
 
 		res.SDKs = append(res.SDKs, &Sdk{
-			Name:      name,
-			Manifest:  mf,
-			SHA256:    hash,
-			Dir:       svcDir,
-			PkgDir:    filepath.ToSlash(filepath.Join("services", name)),
+			Name:     name,
+			Manifest: mf,
+			SHA256:   hash,
+			Dir:      svcDir,
+			PkgDir:   filepath.ToSlash(filepath.Join("services", name)),
 		})
 		res.SDKList = append(res.SDKList, name)
 
