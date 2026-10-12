@@ -84,9 +84,22 @@ type ListResult struct {
 
 // fingerprint 计算列表内容的 sha256 摘要，作为 ETag 值。
 func fingerprint(pkgs []SdkPackageMeta) string {
+	// 提取稳定字段用于计算指纹，排除 RegisteredAt 等易变字段。
+	type stableMeta struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+		SHA256  string `json:"sha256"`
+	}
+
 	// 按 name 排序保证摘要稳定，避免列表顺序变化引发无谓重建。
-	sorted := make([]SdkPackageMeta, len(pkgs))
-	copy(sorted, pkgs)
+	sorted := make([]stableMeta, len(pkgs))
+	for i, p := range pkgs {
+		sorted[i] = stableMeta{
+			Name:    p.Name,
+			Version: p.Version,
+			SHA256:  p.SHA256,
+		}
+	}
 	// 稳定排序：以 name 为主键。
 	for i := 1; i < len(sorted); i++ {
 		for j := i; j > 0 && sorted[j-1].Name > sorted[j].Name; j-- {
@@ -141,8 +154,14 @@ func (c *Client) List() (*ListResult, error) {
 	}
 
 	etag := fingerprint(pkgs)
+	changed := etag != c.lastETag
 	c.lastETag = etag
-	return &ListResult{Changed: true, ETag: etag, Packages: pkgs}, nil
+	return &ListResult{Changed: changed, ETag: etag, Packages: pkgs}, nil
+}
+
+// SetETag 手动设置上一次的 ETag（通常用于从持久化状态恢复）。
+func (c *Client) SetETag(etag string) {
+	c.lastETag = etag
 }
 
 func (c *Client) authorize(req *http.Request) error {

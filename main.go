@@ -384,6 +384,12 @@ func main() {
 	a.orchestrator = &orchestrator{cfg: cfg, store: store, broker: client}
 	a.orchestrator.status = &a.status
 
+	// 从持久化状态恢复上一次的 SDK 版本摘要 (ETag)，避免重启后立即触发无谓构建。
+	if latest := store.LatestByStatus(state.StatusSuccess); latest != nil && latest.SDKVersion != "" {
+		client.SetETag(latest.SDKVersion)
+		log.Printf("从状态文件恢复上一次成功的 SDK ETag: %s", latest.SDKVersion)
+	}
+
 	// 启动前检查并拉取模板
 	if err := a.orchestrator.preRunCheck(); err != nil {
 		log.Printf("启动前检查失败: %v", err)
