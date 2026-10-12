@@ -308,6 +308,14 @@ func isEmptyDir(name string) (bool, error) {
 
 // pollLoop 按 poll_interval_seconds 轮询 SDK 列表，变化即构建。
 func (a *app) pollLoop(ctx context.Context) {
+	// 启动时立即触发一次
+	log.Printf("启动时执行初始构建检查...")
+	if err := a.triggerBuild(ctx, false); err != nil {
+		if !errors.Is(err, errNoChange) {
+			log.Printf("初始触发构建失败: %v", err)
+		}
+	}
+
 	interval := time.Duration(a.cfg.HRPAuth.PollIntervalSeconds) * time.Second
 	for {
 		select {
