@@ -122,8 +122,8 @@ func CreateDefault(path string) error {
 			TemplateDir:          "./HRPAuth-WebUI",
 			TemplateGitURL:       "https://github.com/CoreMatch/HRPAuth-WebUI.git",
 			WorkDir:              "./frontend-build",
-			ArtifactsDir:         "./artifacts",
-			CurrentLink:          "./current",
+			ArtifactsDir:         "./dist",
+			CurrentLink:          "./dist",
 			NPMCommand:           "npm",
 			IgnoreScriptsDefault: true,
 		},
@@ -192,10 +192,10 @@ func (c *Config) applyDefaults() {
 		c.Build.WorkDir = "./frontend-build"
 	}
 	if c.Build.ArtifactsDir == "" {
-		c.Build.ArtifactsDir = "./artifacts"
+		c.Build.ArtifactsDir = "./dist"
 	}
 	if c.Build.CurrentLink == "" {
-		c.Build.CurrentLink = "./current"
+		c.Build.CurrentLink = "./dist"
 	}
 	if c.Build.NPMCommand == "" {
 		c.Build.NPMCommand = "npm"
