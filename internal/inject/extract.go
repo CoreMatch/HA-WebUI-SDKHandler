@@ -29,7 +29,9 @@ func sanitizeArchivePath(entry string) (string, error) {
 	if strings.HasPrefix(clean, "./") {
 		clean = strings.TrimPrefix(clean, "./")
 	}
-	for _, seg := range strings.Split(clean, "/") {
+	// 去除尾部斜杠，避免目录条目产生空段。
+	check := strings.TrimSuffix(clean, "/")
+	for _, seg := range strings.Split(check, "/") {
 		if seg == ".." {
 			return "", fmt.Errorf("%w: 路径含 .. 段 %q", errIllegalPath, entry)
 		}
