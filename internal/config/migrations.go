@@ -25,6 +25,24 @@ var migrations = []Migration{
 			return nil
 		},
 	},
+	// 从版本 "1" 迁移到 "2": ops_token -> client_id/client_secret
+	{
+		FromVersion: "1",
+		ToVersion:   "2",
+		Migrate: func(cfg map[string]interface{}) error {
+			hrpauth, _ := cfg["hrpauth"].(map[string]interface{})
+			if hrpauth != nil {
+				// 如果有旧的 ops_token，我们无法自动映射到 client_id/secret，
+				// 但我们可以保留结构，让用户手动填写。
+				// 按照惯例，如果 ops_token 存在，可以提示用户它已弃用。
+				delete(hrpauth, "ops_token")
+				hrpauth["client_id"] = ""
+				hrpauth["client_secret"] = ""
+			}
+			cfg["version"] = "2"
+			return nil
+		},
+	},
 }
 
 // Migrate 执行配置迁移。

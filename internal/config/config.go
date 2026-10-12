@@ -13,7 +13,7 @@ import (
 const (
 	// ConfigVersion 是当前代码预期的配置文件版本。
 	// 当配置结构发生不兼容变更时需增加此版本号，并在 migrations.go 中编写迁移逻辑。
-	ConfigVersion = "1"
+	ConfigVersion = "2"
 )
 
 // Config 是顶层配置结构。
@@ -35,7 +35,8 @@ type ServerConfig struct {
 // HRPAuthConfig 是 HRPAuth 主服务连接配置。
 type HRPAuthConfig struct {
 	BaseURL             string `yaml:"base_url"`
-	OpsToken            string `yaml:"ops_token"`
+	ClientID            string `yaml:"client_id"`
+	ClientSecret        string `yaml:"client_secret"`
 	PollIntervalSeconds int    `yaml:"poll_interval_seconds"`
 }
 
@@ -110,6 +111,8 @@ func CreateDefault(path string) error {
 		},
 		HRPAuth: HRPAuthConfig{
 			BaseURL:             "http://127.0.0.1:2778",
+			ClientID:            "",
+			ClientSecret:        "",
 			PollIntervalSeconds: 60,
 		},
 		Build: BuildConfig{
@@ -194,8 +197,11 @@ func (c *Config) applyDefaults() {
 
 func (c *Config) validate() error {
 	var missing []string
-	if strings.TrimSpace(c.HRPAuth.OpsToken) == "" {
-		missing = append(missing, "hrpauth.ops_token")
+	if strings.TrimSpace(c.HRPAuth.ClientID) == "" {
+		missing = append(missing, "hrpauth.client_id")
+	}
+	if strings.TrimSpace(c.HRPAuth.ClientSecret) == "" {
+		missing = append(missing, "hrpauth.client_secret")
 	}
 	if strings.TrimSpace(c.Build.TemplateDir) == "" {
 		missing = append(missing, "build.template_dir")

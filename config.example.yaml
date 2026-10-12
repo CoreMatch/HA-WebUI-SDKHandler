@@ -10,7 +10,8 @@ server:
 # HRPAuth 主服务连接（唯一 SDK 来源，绝不直接访问卫星服务）
 hrpauth:
   base_url: "http://127.0.0.1:2778"
-  ops_token: ""            # 必填：请求 HRPAuth 时携带的 Ops token（Authorization: Bearer）
+  client_id: ""             # 必填：OAuth2 Client ID
+  client_secret: ""         # 必填：OAuth2 Client Secret
   poll_interval_seconds: 60
 
 build:

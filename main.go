@@ -284,7 +284,8 @@ func main() {
 	}
 	client, err := broker.New(
 		cfg.HRPAuth.BaseURL,
-		cfg.HRPAuth.OpsToken,
+		cfg.HRPAuth.ClientID,
+		cfg.HRPAuth.ClientSecret,
 		filepath.Join(cfg.StateDir, "cache"),
 		30*time.Second,
 	)

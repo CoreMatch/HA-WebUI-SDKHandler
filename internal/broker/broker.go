@@ -21,35 +21,42 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
 // SdkPackageMeta 是 HRPAuth 返回的 SDK 包元信息（列表项）。
 // 字段采用宽容解析，仅保证与契约相关的字段存在。
 type SdkPackageMeta struct {
-	Name         string   `json:"name"`
-	Version      string   `json:"version"`
-	SHA256       string   `json:"sha256"`
-	RunScripts   bool     `json:"run_scripts"`
+	Name       string `json:"name"`
+	Version    string `json:"version"`
+	SHA256     string `json:"sha256"`
+	RunScripts bool   `json:"run_scripts"`
 	// Routes 仅用于诊断，形态由宿主契约决定（当前为对象数组），因此使用
 	// RawMessage 宽容接收，避免列表解析因诊断字段变化而失败。
 	Routes       []json.RawMessage `json:"routes,omitempty"`
-	RegisteredAt string   `json:"registered_at,omitempty"`
+	RegisteredAt string            `json:"registered_at,omitempty"`
 }
 
 // Client 是 HRPAuth SDK 包客户端。
 type Client struct {
-	baseURL    string
-	opsToken   string
-	httpClient *http.Client
+	baseURL      string
+	clientID     string
+	clientSecret string
+	httpClient   *http.Client
 	// 缓存根目录：包归档下载后存放于此（按 name 存放）。
 	cacheDir string
 	// lastETag 记录上一次轮询返回的 ETag，用于 If-None-Match。
 	lastETag string
+
+	// OAuth2 令牌缓存
+	tokenMu     sync.RWMutex
+	accessToken string
+	tokenExpiry time.Time
 }
 
 // New 构造客户端。cacheDir 不存在时自动创建。
-func New(baseURL, opsToken, cacheDir string, timeout time.Duration) (*Client, error) {
+func New(baseURL, clientID, clientSecret, cacheDir string, timeout time.Duration) (*Client, error) {
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
@@ -57,10 +64,11 @@ func New(baseURL, opsToken, cacheDir string, timeout time.Duration) (*Client, er
 		return nil, fmt.Errorf("创建包缓存目录失败: %w", err)
 	}
 	return &Client{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		opsToken:   opsToken,
-		httpClient: &http.Client{Timeout: timeout},
-		cacheDir:   cacheDir,
+		baseURL:      strings.TrimRight(baseURL, "/"),
+		clientID:     clientID,
+		clientSecret: clientSecret,
+		httpClient:   &http.Client{Timeout: timeout},
+		cacheDir:     cacheDir,
 	}, nil
 }
 
@@ -98,7 +106,9 @@ func (c *Client) List() (*ListResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("构造列表请求失败: %w", err)
 	}
-	c.authorize(req)
+	if err := c.authorize(req); err != nil {
+		return nil, fmt.Errorf("认证失败: %w", err)
+	}
 	if c.lastETag != "" {
 		req.Header.Set("If-None-Match", c.lastETag)
 	}
@@ -135,8 +145,74 @@ func (c *Client) List() (*ListResult, error) {
 	return &ListResult{Changed: true, ETag: etag, Packages: pkgs}, nil
 }
 
-func (c *Client) authorize(req *http.Request) {
-	req.Header.Set("Authorization", "Bearer "+c.opsToken)
+func (c *Client) authorize(req *http.Request) error {
+	token, err := c.getOrRefreshToken()
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	return nil
+}
+
+func (c *Client) getOrRefreshToken() (string, error) {
+	c.tokenMu.RLock()
+	if c.accessToken != "" && time.Now().Add(time.Minute).Before(c.tokenExpiry) {
+		token := c.accessToken
+		c.tokenMu.RUnlock()
+		return token, nil
+	}
+	c.tokenMu.RUnlock()
+
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+
+	// Double check after lock
+	if c.accessToken != "" && time.Now().Add(time.Minute).Before(c.tokenExpiry) {
+		return c.accessToken, nil
+	}
+
+	// Fetch new token
+	tokenURL := c.baseURL + "/oauth/token"
+	data := url.Values{}
+	data.Set("grant_type", "client_credentials")
+
+	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth(c.clientID, c.clientSecret)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("请求 OAuth2 令牌失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("获取令牌响应异常 status=%d body=%s", resp.StatusCode, string(body))
+	}
+
+	var res struct {
+		Success bool `json:"success"`
+		Data    struct {
+			AccessToken string `json:"access_token"`
+			ExpiresIn   int    `json:"expires_in"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return "", fmt.Errorf("解析令牌响应失败: %w", err)
+	}
+
+	if !res.Success || res.Data.AccessToken == "" {
+		return "", fmt.Errorf("令牌颁发失败")
+	}
+
+	c.accessToken = res.Data.AccessToken
+	c.tokenExpiry = time.Now().Add(time.Duration(res.Data.ExpiresIn) * time.Second)
+
+	return c.accessToken, nil
 }
 
 // parsePackageList 宽容解析 SDK 包列表响应体。
@@ -191,7 +267,9 @@ func (c *Client) Download(name string) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("构造下载请求失败: %w", err)
 	}
-	c.authorize(req)
+	if err := c.authorize(req); err != nil {
+		return "", "", fmt.Errorf("认证失败: %w", err)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
