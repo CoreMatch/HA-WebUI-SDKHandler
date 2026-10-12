@@ -11,9 +11,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"sync"
@@ -225,10 +227,62 @@ func (o *orchestrator) execute(buildID, workDir string, archives, hashes map[str
 }
 
 func (o *orchestrator) preRunCheck() error {
+	if err := o.ensureTemplateRepo(); err != nil {
+		return err
+	}
 	if _, err := os.Stat(o.cfg.Build.TemplateDir); err != nil {
 		return fmt.Errorf("模板目录不可用: %w（请配置 build.template_dir 指向 HRPAuth-Web 仓库）", err)
 	}
 	return nil
+}
+
+// ensureTemplateRepo 检查模板目录是否为空，如果为空则拉取 git 仓库。
+func (o *orchestrator) ensureTemplateRepo() error {
+	dir := o.cfg.Build.TemplateDir
+	url := o.cfg.Build.TemplateGitURL
+
+	if url == "" {
+		return nil
+	}
+
+	empty, err := isEmptyDir(dir)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("检查模板目录失败: %w", err)
+	}
+
+	if os.IsNotExist(err) || empty {
+		log.Printf("检测到模板目录 %s 为空或不存在，开始从 %s 拉取最新仓库...", dir, url)
+		// 如果父目录不存在，先创建父目录
+		parent := filepath.Dir(dir)
+		if _, err := os.Stat(parent); os.IsNotExist(err) {
+			if err := os.MkdirAll(parent, 0755); err != nil {
+				return fmt.Errorf("创建模板父目录失败: %w", err)
+			}
+		}
+
+		// 执行 git clone
+		cmd := exec.Command("git", "clone", url, dir)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("git clone 失败: %w, 输出: %s", err, string(output))
+		}
+		log.Printf("模板仓库拉取成功")
+	}
+
+	return nil
+}
+
+func isEmptyDir(name string) (bool, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1) // 尝试读取一个文件名
+	if err == io.EOF {
+		return true, nil // 读不到说明为空
+	}
+	return false, err // 读到了或者出错
 }
 
 // pollLoop 按 poll_interval_seconds 轮询 SDK 列表，变化即构建。
@@ -301,6 +355,11 @@ func main() {
 	a.orchestrator = &orchestrator{cfg: cfg, store: store, broker: client}
 	a.orchestrator.status = &a.status
 
+	// 启动前检查并拉取模板
+	if err := a.orchestrator.preRunCheck(); err != nil {
+		log.Printf("启动前检查失败: %v", err)
+	}
+
 	// 启动轮询协程（后台）。
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -357,12 +416,12 @@ func (a *app) handleBuildStatus(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"state":     rec.Status,
-		"build_id":  rec.BuildID,
-		"time":      rec.StartedAt,
-		"sdk_list":  rec.SDKList,
-		"error":     rec.Error,
-		"artifact":  rec.ArtifactDir,
+		"state":    rec.Status,
+		"build_id": rec.BuildID,
+		"time":     rec.StartedAt,
+		"sdk_list": rec.SDKList,
+		"error":    rec.Error,
+		"artifact": rec.ArtifactDir,
 	})
 }
 

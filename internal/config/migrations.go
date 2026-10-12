@@ -43,6 +43,21 @@ var migrations = []Migration{
 			return nil
 		},
 	},
+	// 从版本 "2" 迁移到 "3": 添加 build.template_git_url
+	{
+		FromVersion: "2",
+		ToVersion:   "3",
+		Migrate: func(cfg map[string]interface{}) error {
+			build, _ := cfg["build"].(map[string]interface{})
+			if build != nil {
+				if build["template_git_url"] == nil {
+					build["template_git_url"] = "https://github.com/HRPAuth/HRPAuth-WebUI.git"
+				}
+			}
+			cfg["version"] = "3"
+			return nil
+		},
+	},
 }
 
 // Migrate 执行配置迁移。

@@ -13,7 +13,7 @@ import (
 const (
 	// ConfigVersion 是当前代码预期的配置文件版本。
 	// 当配置结构发生不兼容变更时需增加此版本号，并在 migrations.go 中编写迁移逻辑。
-	ConfigVersion = "2"
+	ConfigVersion = "3"
 )
 
 // Config 是顶层配置结构。
@@ -43,6 +43,7 @@ type HRPAuthConfig struct {
 // BuildConfig 是构建与发布管线配置。
 type BuildConfig struct {
 	TemplateDir          string   `yaml:"template_dir"`
+	TemplateGitURL       string   `yaml:"template_git_url"`
 	WorkDir              string   `yaml:"work_dir"`
 	ArtifactsDir         string   `yaml:"artifacts_dir"`
 	CurrentLink          string   `yaml:"current_link"`
@@ -117,6 +118,7 @@ func CreateDefault(path string) error {
 		},
 		Build: BuildConfig{
 			TemplateDir:          "../HRPAuth-WebUI",
+			TemplateGitURL:       "https://github.com/HRPAuth/HRPAuth-WebUI.git",
 			WorkDir:              "./frontend-build",
 			ArtifactsDir:         "./artifacts",
 			CurrentLink:          "./current",
@@ -174,6 +176,12 @@ func (c *Config) applyDefaults() {
 	}
 	if c.HRPAuth.PollIntervalSeconds <= 0 {
 		c.HRPAuth.PollIntervalSeconds = 60
+	}
+	if c.Build.TemplateDir == "" {
+		c.Build.TemplateDir = "../HRPAuth-WebUI"
+	}
+	if c.Build.TemplateGitURL == "" {
+		c.Build.TemplateGitURL = "https://github.com/HRPAuth/HRPAuth-WebUI.git"
 	}
 	if c.Build.WorkDir == "" {
 		c.Build.WorkDir = "./frontend-build"
