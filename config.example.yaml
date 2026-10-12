@@ -16,7 +16,7 @@ hrpauth:
 
 build:
   # 前端模板仓库路径（只读，每次构建全量复制）。例如 HRPAuth-Web 仓库位置：
-  template_dir: "/home/lnb/Desktop/HA/HRPAuth-Web"
+  template_dir: "../HRPAuth-WebUI"
   work_dir: "./frontend-build"          # 每次构建的工作目录（会反复重建）
   artifacts_dir: "./artifacts"          # 带版本号的产物根目录
   current_link: "./current"             # 当前生效产物的指针（symlink）

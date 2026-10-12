@@ -116,7 +116,7 @@ func CreateDefault(path string) error {
 			PollIntervalSeconds: 60,
 		},
 		Build: BuildConfig{
-			TemplateDir:          "/path/to/HRPAuth-Web",
+			TemplateDir:          "../HRPAuth-WebUI",
 			WorkDir:              "./frontend-build",
 			ArtifactsDir:         "./artifacts",
 			CurrentLink:          "./current",
