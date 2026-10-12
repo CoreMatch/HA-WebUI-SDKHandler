@@ -51,7 +51,7 @@ var migrations = []Migration{
 			build, _ := cfg["build"].(map[string]interface{})
 			if build != nil {
 				if build["template_git_url"] == nil {
-					build["template_git_url"] = "https://github.com/HRPAuth/HRPAuth-WebUI.git"
+					build["template_git_url"] = "https://github.com/CoreMatch/HRPAuth-WebUI.git"
 				}
 			}
 			cfg["version"] = "3"

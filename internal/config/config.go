@@ -120,7 +120,7 @@ func CreateDefault(path string) error {
 		},
 		Build: BuildConfig{
 			TemplateDir:          "./HRPAuth-WebUI",
-			TemplateGitURL:       "https://github.com/HRPAuth/HRPAuth-WebUI.git",
+			TemplateGitURL:       "https://github.com/CoreMatch/HRPAuth-WebUI.git",
 			WorkDir:              "./frontend-build",
 			ArtifactsDir:         "./artifacts",
 			CurrentLink:          "./current",
@@ -186,7 +186,7 @@ func (c *Config) applyDefaults() {
 		c.Build.TemplateDir = "../HRPAuth-WebUI"
 	}
 	if c.Build.TemplateGitURL == "" {
-		c.Build.TemplateGitURL = "https://github.com/HRPAuth/HRPAuth-WebUI.git"
+		c.Build.TemplateGitURL = "https://github.com/CoreMatch/HRPAuth-WebUI.git"
 	}
 	if c.Build.WorkDir == "" {
 		c.Build.WorkDir = "./frontend-build"
