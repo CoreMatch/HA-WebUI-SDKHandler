@@ -54,11 +54,14 @@ func CopyTemplate(templateDir, workDir string) error {
 		if rel == "." {
 			return nil
 		}
-		if copyExcluded[d.Name()] {
-			if d.IsDir() {
-				return filepath.SkipDir
+		// 只在模板根目录下应用排除逻辑
+		if filepath.Dir(rel) == "." {
+			if copyExcluded[d.Name()] {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
 			}
-			return nil
 		}
 		dest := filepath.Join(workDir, rel)
 		if d.IsDir() {
@@ -80,6 +83,11 @@ func CopyTemplate(templateDir, workDir string) error {
 }
 
 func copyFile(src, dest string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("获取源文件状态失败: %w", err)
+	}
+
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return fmt.Errorf("创建目标目录失败: %w", err)
 	}
@@ -88,7 +96,7 @@ func copyFile(src, dest string) error {
 		return fmt.Errorf("打开源文件失败: %w", err)
 	}
 	defer func() { _ = in.Close() }()
-	out, err := os.Create(dest)
+	out, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, info.Mode())
 	if err != nil {
 		return fmt.Errorf("创建目标文件失败: %w", err)
 	}
