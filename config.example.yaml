@@ -17,7 +17,7 @@ hrpauth:
 
 build:
   # 前端模板仓库路径（只读，每次构建全量复制）。例如 HRPAuth-Web 仓库位置：
-  template_dir: "../HRPAuth-WebUI"
+  template_dir: "./HRPAuth-WebUI"
   # 如果 template_dir 为空或不存在，自动从该 Git 仓库拉取：
   template_git_url: "https://github.com/HRPAuth/HRPAuth-WebUI.git"
   work_dir: "./frontend-build"          # 每次构建的工作目录（会反复重建）
