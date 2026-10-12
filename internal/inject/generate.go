@@ -129,14 +129,22 @@ func writeSDKRoutes(dir string, sdks []*Sdk) error {
 	}
 	b.WriteString("\n")
 
-	// sdkRouteElements：ReactNode 数组，每个为 Suspense 包裹的 <Route>。
+	// sdkRouteElements：ReactNode 数组，供模板直接插入 <Routes>。
+	// React Router 要求 <Routes> 的直接子节点必须是 <Route> 或 Fragment，
+	// 因此 Suspense 必须放进 route.element，不能包在 <Route> 外层。
 	b.WriteString("export const sdkRouteElements: ReactNode[] = [\n")
 	for _, sdk := range sdks {
 		for i, r := range sdk.Manifest.Routes {
 			ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
-			b.WriteString("  <Suspense key=" + jsString(sdk.Name+"-"+r.Path) + " fallback={<SdkRouteFallback />}>\n")
-			b.WriteString("    <Route path=" + jsString(r.Path) + " element={<" + ident + " />} />\n")
-			b.WriteString("  </Suspense>,\n")
+			b.WriteString("  <Route\n")
+			b.WriteString("    key=" + jsString(sdk.Name+"-"+r.Path) + "\n")
+			b.WriteString("    path=" + jsString(r.Path) + "\n")
+			b.WriteString("    element={\n")
+			b.WriteString("      <Suspense fallback={<SdkRouteFallback />}>\n")
+			b.WriteString("        <" + ident + " />\n")
+			b.WriteString("      </Suspense>\n")
+			b.WriteString("    }\n")
+			b.WriteString("  />,\n")
 		}
 	}
 	b.WriteString("];\n\n")
