@@ -85,6 +85,11 @@ func (o *orchestrator) runOnce(force bool) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("轮询 SDK 包列表失败: %w", err)
 	}
+
+	if list.Changed {
+		printSDKList(list.Packages)
+	}
+
 	if !force && !list.Changed {
 		return false, errNoChange
 	}
@@ -421,6 +426,14 @@ func main() {
 		log.Printf("从状态文件恢复上一次成功的 SDK ETag: %s", latest.SDKVersion)
 	}
 
+	// 项目启动时打印 SDK 列表。
+	if pkgs, err := client.Peek(); err == nil {
+		log.Println("项目启动，初始 SDK 列表:")
+		printSDKList(pkgs)
+	} else {
+		log.Printf("项目启动时获取 SDK 列表失败: %v", err)
+	}
+
 	// 启动前检查并拉取模板
 	if err := a.orchestrator.preRunCheck(); err != nil {
 		log.Printf("启动前检查失败: %v", err)
@@ -460,6 +473,7 @@ func main() {
 	maintR.Use(gin.Recovery())
 	maintR.Use(a.opsAuthMiddleware())
 	maintR.POST("/api/maintenance/template/pull", a.handleMaintenancePull)
+	maintR.GET("/api/maintenance/sdk/list", a.handleMaintenanceSDKList)
 
 	maintSrv := &http.Server{
 		Addr:    cfg.Server.MaintenanceAddr,
@@ -587,4 +601,33 @@ func (a *app) handleStatic(c *gin.Context) {
 	}
 	file := filepath.Join(cur, c.Param("filepath"))
 	c.File(file)
+}
+
+// handleMaintenanceSDKList 返回详细的 SDK 列表供运维查询。
+func (a *app) handleMaintenanceSDKList(c *gin.Context) {
+	pkgs, err := a.broker.Peek()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取 SDK 列表失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success":  true,
+		"count":    len(pkgs),
+		"packages": pkgs,
+	})
+}
+
+func printSDKList(packages []broker.SdkPackageMeta) {
+	if len(packages) == 0 {
+		log.Println("SDK 列表为空")
+		return
+	}
+	log.Printf("发现 %d 个 SDK 包:", len(packages))
+	for _, pkg := range packages {
+		hash := pkg.SHA256
+		if len(hash) > 8 {
+			hash = hash[:8]
+		}
+		log.Printf("  - %-20s %-10s [Hash: %s, Scripts: %v]", pkg.Name, pkg.Version, hash, pkg.RunScripts)
+	}
 }

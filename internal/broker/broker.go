@@ -159,6 +159,36 @@ func (c *Client) List() (*ListResult, error) {
 	return &ListResult{Changed: changed, ETag: etag, Packages: pkgs}, nil
 }
 
+// Peek 获取当前最新的 SDK 包列表而不更新客户端内部的 ETag 状态。
+func (c *Client) Peek() ([]SdkPackageMeta, error) {
+	reqURL := c.baseURL + "/services/sdk-packages"
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("构造列表请求失败: %w", err)
+	}
+	if err := c.authorize(req); err != nil {
+		return nil, fmt.Errorf("认证失败: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("请求 SDK 包列表失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("SDK 包列表响应异常 status=%d body=%s", resp.StatusCode, truncate(string(body), 512))
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
+	if err != nil {
+		return nil, fmt.Errorf("读取 SDK 包列表响应失败: %w", err)
+	}
+
+	return parsePackageList(body)
+}
+
 // SetETag 手动设置上一次的 ETag（通常用于从持久化状态恢复）。
 func (c *Client) SetETag(etag string) {
 	c.lastETag = etag
