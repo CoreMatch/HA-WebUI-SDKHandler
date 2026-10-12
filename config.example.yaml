@@ -5,11 +5,11 @@
 #       聚合生成静态前端并编译，成功后原子发布。
 
 server:
-  listen_addr: ":8200"
+  listen_addr: ":2704"
 
 # HRPAuth 主服务连接（唯一 SDK 来源，绝不直接访问卫星服务）
 hrpauth:
-  base_url: "http://127.0.0.1:8080"
+  base_url: "http://127.0.0.1:2778"
   ops_token: ""            # 必填：请求 HRPAuth 时携带的 Ops token（Authorization: Bearer）
   poll_interval_seconds: 60
 

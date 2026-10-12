@@ -11,12 +11,12 @@ import (
 
 // Config 是顶层配置结构。
 type Config struct {
-	Server          ServerConfig  `yaml:"server"`
-	HRPAuth         HRPAuthConfig `yaml:"hrpauth"`
-	Build           BuildConfig   `yaml:"build"`
-	StateDir        string        `yaml:"state_dir"`
-	ServeArtifacts  bool          `yaml:"serve_artifacts"`
-	configPath      string        // 配置文件绝对路径（用于解析相对路径）
+	Server         ServerConfig  `yaml:"server"`
+	HRPAuth        HRPAuthConfig `yaml:"hrpauth"`
+	Build          BuildConfig   `yaml:"build"`
+	StateDir       string        `yaml:"state_dir"`
+	ServeArtifacts bool          `yaml:"serve_artifacts"`
+	configPath     string        // 配置文件绝对路径（用于解析相对路径）
 }
 
 // ServerConfig 是 HTTP 服务配置。
@@ -26,9 +26,9 @@ type ServerConfig struct {
 
 // HRPAuthConfig 是 HRPAuth 主服务连接配置。
 type HRPAuthConfig struct {
-	BaseURL            string `yaml:"base_url"`
-	OpsToken           string `yaml:"ops_token"`
-	PollIntervalSeconds int   `yaml:"poll_interval_seconds"`
+	BaseURL             string `yaml:"base_url"`
+	OpsToken            string `yaml:"ops_token"`
+	PollIntervalSeconds int    `yaml:"poll_interval_seconds"`
 }
 
 // BuildConfig 是构建与发布管线配置。
@@ -66,7 +66,10 @@ func Load(path string) (*Config, error) {
 
 func (c *Config) applyDefaults() {
 	if c.Server.ListenAddr == "" {
-		c.Server.ListenAddr = ":8200"
+		c.Server.ListenAddr = ":2704"
+	}
+	if c.HRPAuth.BaseURL == "" {
+		c.HRPAuth.BaseURL = "http://127.0.0.1:2778"
 	}
 	if c.HRPAuth.PollIntervalSeconds <= 0 {
 		c.HRPAuth.PollIntervalSeconds = 60
@@ -93,9 +96,6 @@ func (c *Config) applyDefaults() {
 
 func (c *Config) validate() error {
 	var missing []string
-	if strings.TrimSpace(c.HRPAuth.BaseURL) == "" {
-		missing = append(missing, "hrpauth.base_url")
-	}
 	if strings.TrimSpace(c.HRPAuth.OpsToken) == "" {
 		missing = append(missing, "hrpauth.ops_token")
 	}

@@ -19,3 +19,4 @@ current/
 # 环境与密钥
 .env
 *.local
+build/
