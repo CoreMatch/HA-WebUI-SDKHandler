@@ -29,7 +29,8 @@ type Config struct {
 
 // ServerConfig 是 HTTP 服务配置。
 type ServerConfig struct {
-	ListenAddr string `yaml:"listen_addr"`
+	ListenAddr      string `yaml:"listen_addr"`
+	MaintenanceAddr string `yaml:"maintenance_addr"`
 }
 
 // HRPAuthConfig 是 HRPAuth 主服务连接配置。
@@ -108,7 +109,8 @@ func CreateDefault(path string) error {
 	cfg := &Config{
 		Version: ConfigVersion,
 		Server: ServerConfig{
-			ListenAddr: ":2704",
+			ListenAddr:      ":2704",
+			MaintenanceAddr: ":2705",
 		},
 		HRPAuth: HRPAuthConfig{
 			BaseURL:             "http://127.0.0.1:2778",
@@ -170,6 +172,9 @@ func Backup(path string, version string) error {
 func (c *Config) applyDefaults() {
 	if c.Server.ListenAddr == "" {
 		c.Server.ListenAddr = ":2704"
+	}
+	if c.Server.MaintenanceAddr == "" {
+		c.Server.MaintenanceAddr = ":2705"
 	}
 	if c.HRPAuth.BaseURL == "" {
 		c.HRPAuth.BaseURL = "http://127.0.0.1:2778"

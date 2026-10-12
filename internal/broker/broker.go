@@ -311,6 +311,32 @@ func (c *Client) Download(name string) (string, string, error) {
 // CacheDir 返回包缓存目录。
 func (c *Client) CacheDir() string { return c.cacheDir }
 
+// VerifyOpsCredential 验证提供的 Token 是否具有运维 (Ops/Level 2) 权限。
+// 它通过尝试调用 HRPAuth 的 /services/sdk-packages 接口来判断，
+// 如果返回 200 则认为具备权限。
+func (c *Client) VerifyOpsCredential(token string) (bool, error) {
+	reqURL := c.baseURL + "/services/sdk-packages"
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("请求 HRPAuth 验证失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		return true, nil
+	}
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return false, nil
+	}
+	return false, fmt.Errorf("HRPAuth 返回异常状态码: %d", resp.StatusCode)
+}
+
 func archiveSuffix(header []byte) (string, error) {
 	if len(header) >= 2 && header[0] == 0x1f && header[1] == 0x8b {
 		return ".tar.gz", nil

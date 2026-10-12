@@ -6,6 +6,7 @@
 
 server:
   listen_addr: ":2704"
+  maintenance_addr: ":2705" # 维护端口，支持立即拉取模板等运维操作
 
 # HRPAuth 主服务连接（唯一 SDK 来源，绝不直接访问卫星服务）
 hrpauth:

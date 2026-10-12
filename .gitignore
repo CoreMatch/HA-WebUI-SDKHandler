@@ -20,3 +20,6 @@ current/
 .env
 *.local
 build/
+.trae
+HA-Contract
+HRPAuth-Wiki

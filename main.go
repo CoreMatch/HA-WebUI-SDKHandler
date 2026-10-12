@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -271,6 +272,26 @@ func (o *orchestrator) ensureTemplateRepo() error {
 	return nil
 }
 
+// pullLatestTemplate 在模板目录执行 git pull 以获取最新代码。
+func (o *orchestrator) pullLatestTemplate() error {
+	dir := o.cfg.Build.TemplateDir
+
+	// 确保目录存在且是 git 仓库
+	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
+		// 如果不是 git 仓库，尝试 clone
+		return o.ensureTemplateRepo()
+	}
+
+	log.Printf("开始拉取最新模板代码: %s", dir)
+	cmd := exec.Command("git", "pull")
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git pull 失败: %w, 输出: %s", err, string(output))
+	}
+	log.Printf("模板代码拉取成功")
+	return nil
+}
+
 func isEmptyDir(name string) (bool, error) {
 	f, err := os.Open(name)
 	if err != nil {
@@ -389,6 +410,23 @@ func main() {
 		Handler: r,
 	}
 
+	// 启动维护端口 HTTP 服务。
+	maintR := gin.New()
+	maintR.Use(gin.Recovery())
+	maintR.Use(a.opsAuthMiddleware())
+	maintR.POST("/api/maintenance/template/pull", a.handleMaintenancePull)
+
+	maintSrv := &http.Server{
+		Addr:    cfg.Server.MaintenanceAddr,
+		Handler: maintR,
+	}
+	go func() {
+		log.Printf("维护服务已启动，监听 %s", cfg.Server.MaintenanceAddr)
+		if err := maintSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("维护服务异常退出: %v", err)
+		}
+	}()
+
 	// 优雅退出。
 	go func() {
 		quit := make(chan os.Signal, 1)
@@ -397,6 +435,7 @@ func main() {
 		log.Println("收到退出信号，优雅关闭...")
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel2()
+		_ = maintSrv.Shutdown(ctx2)
 		_ = srv.Shutdown(ctx2)
 		cancel()
 	}()
@@ -406,6 +445,47 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("HTTP 服务异常退出: %v", err)
 	}
+}
+
+// opsAuthMiddleware 鉴权中间件，验证 Token 是否具备运维权限。
+func (a *app) opsAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		auth := c.GetHeader("Authorization")
+		if auth == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			return
+		}
+
+		parts := strings.Split(auth, " ")
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization format, use Bearer <token>"})
+			return
+		}
+
+		token := parts[1]
+		ok, err := a.broker.VerifyOpsCredential(token)
+		if err != nil {
+			log.Printf("验证运维凭据失败: %v", err)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify credential"})
+			return
+		}
+
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Insufficient auth level"})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// handleMaintenancePull 处理立即拉取最新模板的请求。
+func (a *app) handleMaintenancePull(c *gin.Context) {
+	if err := a.orchestrator.pullLatestTemplate(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "模板拉取成功"})
 }
 
 // handleBuildStatus 返回最近一次构建结果。
