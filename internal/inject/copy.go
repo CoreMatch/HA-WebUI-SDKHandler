@@ -9,9 +9,9 @@ import (
 )
 
 // copyExcluded 是复制模板时需要排除的目录/文件名集合：
-// 依赖、版本控制、构建产物、缓存与本次工作目录本身。
+// 版本控制、构建产物、缓存与本次工作目录本身。
+// 注意：node_modules 不再排除，因为它应该在拉取模板后安装一次，并随模板复制到工作目录。
 var copyExcluded = map[string]bool{
-	"node_modules":    true,
 	".git":            true,
 	"dist":            true,
 	"frontend-build":  true,

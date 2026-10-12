@@ -267,6 +267,11 @@ func (o *orchestrator) ensureTemplateRepo() error {
 			return fmt.Errorf("git clone 失败: %w, 输出: %s", err, string(output))
 		}
 		log.Printf("模板仓库拉取成功")
+
+		// 拉取后执行 npm install
+		if err := o.npmInstallTemplate(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -289,6 +294,32 @@ func (o *orchestrator) pullLatestTemplate() error {
 		return fmt.Errorf("git pull 失败: %w, 输出: %s", err, string(output))
 	}
 	log.Printf("模板代码拉取成功")
+
+	// 拉取后执行 npm install
+	return o.npmInstallTemplate()
+}
+
+// npmInstallTemplate 在模板目录执行 npm install。
+func (o *orchestrator) npmInstallTemplate() error {
+	dir := o.cfg.Build.TemplateDir
+	npm := o.cfg.Build.NPMCommand
+	if npm == "" {
+		npm = "npm"
+	}
+
+	log.Printf("开始在模板目录执行 npm install: %s", dir)
+
+	args := []string{"install"}
+	if o.cfg.Build.IgnoreScriptsDefault {
+		args = append(args, "--ignore-scripts")
+	}
+
+	cmd := exec.Command(npm, args...)
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("npm install 失败: %w, 输出: %s", err, string(output))
+	}
+	log.Printf("模板目录 npm install 执行成功")
 	return nil
 }
 

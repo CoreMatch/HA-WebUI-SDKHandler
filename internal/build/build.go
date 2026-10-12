@@ -78,35 +78,6 @@ func Run(opts Options) *Result {
 		return res
 	}
 
-	// 1. npm install
-	// 默认 --ignore-scripts；若存在 run_scripts:true 的包，则本次允许执行
-	// 依赖树的生命周期脚本（契约：unless the package declares run_scripts:true）。
-	ignoreScripts := opts.IgnoreScriptsDefault
-	for _, approved := range opts.RunScripts {
-		if approved {
-			ignoreScripts = false
-			opts.Logf("[build] 存在 run_scripts:true 的 SDK 包，本次 npm install 允许执行生命周期脚本")
-			break
-		}
-	}
-	var installArgs []string
-	installArgs = append(installArgs, "install")
-	if ignoreScripts {
-		installArgs = append(installArgs, "--ignore-scripts")
-	}
-	if sr := runStep(ctx, opts, "npm install", opts.NPMCommand, installArgs...); !sr.OK {
-		opts.Logf("[build] npm install 失败")
-			if sr.Log != "" {
-				opts.Logf("[build] npm install 输出:\n%s", sr.Log)
-			}
-		res.OK = false
-		res.Steps = append(res.Steps, sr)
-		res.Err = sr.Err
-		return res
-	} else {
-		res.Steps = append(res.Steps, sr)
-	}
-
 	// 2. 模板若定义了 build 脚本，优先用 npm run build（其本身须包含 tsc+vite）；
 	//    否则显式执行 npx/npm tsc -b && vite build。
 	//    这里读取模板 package.json（注入阶段不修改 scripts），决定走哪条路径。
