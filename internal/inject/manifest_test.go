@@ -71,3 +71,50 @@ func TestValidateManifestMultiPage(t *testing.T) {
 		t.Errorf("expected errors for invalid menu path, got none")
 	}
 }
+
+func TestValidateManifestProfileCards(t *testing.T) {
+	priority := 5
+	m := &Manifest{
+		SchemaVersion: 1,
+		Name:          "test-svc",
+		Version:       "1.0.0",
+		ProfileCards: []ProfileCardEntry{
+			{Title: "Profile Extensions", Module: "src/profile/CardA", Priority: &priority},
+		},
+	}
+
+	errs := ValidateManifest(m)
+	if len(errs) > 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+
+	m.ProfileCards[0].Module = "../escape"
+	errs = ValidateManifest(m)
+	if len(errs) == 0 {
+		t.Errorf("expected errors for invalid profile card module, got none")
+	}
+}
+
+func TestValidateManifestNeedsRoutesOrProfileCards(t *testing.T) {
+	m := &Manifest{
+		SchemaVersion: 1,
+		Name:          "test-svc",
+		Version:       "1.0.0",
+	}
+
+	errs := ValidateManifest(m)
+	if len(errs) == 0 {
+		t.Fatalf("expected errors when routes and profile_cards are both empty")
+	}
+
+	found := false
+	for _, err := range errs {
+		if err == "routes 与 profile_cards 不能同时为空" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected routes/profile_cards empty error, got %v", errs)
+	}
+}

@@ -4,11 +4,12 @@
 //  1. 把只读模板目录 template_dir 全量复制到本次构建的 work_dir。
 //  2. 解包每个 SDK 归档到 work_dir/src/generated/services/<name>/，
 //     解包时做路径安全校验（拒绝 ..、绝对路径、symlink/hardlink）。
-//  3. 校验各包 manifest.json（schema_version=1、name 合法、routes 非空等），
+//  3. 校验各包 manifest.json（schema_version=1、name 合法、routes/profile_cards 契约等），
 //     记录校验结果。
 //  4. 合并所有 manifest.dependencies 到 work_dir/package.json（deep merge）。
-//  5. 在 work_dir/src/generated/ 下生成四个文件：
-//     sdk-manifest.ts / sdk-routes.tsx / sdk-navbar.tsx / sdk-dashboard.tsx。
+//  5. 在 work_dir/src/generated/ 下生成聚合文件：
+//     sdk-manifest.ts / sdk-routes.tsx / sdk-navbar.tsx /
+//     sdk-dashboard.tsx / sdk-profile-cards.tsx。
 package inject
 
 import (
@@ -23,14 +24,15 @@ const SchemaVersion = 1
 
 // Manifest 对应 SDK 包根目录的 manifest.json，字段与契约一一对应。
 type Manifest struct {
-	SchemaVersion int               `json:"schema_version"`
-	Name          string            `json:"name"`
-	Version       string            `json:"version"`
-	Routes        []RouteEntry      `json:"routes"`
-	Menu          MenuEntries       `json:"menu,omitempty"`
-	Dashboard     MenuEntries       `json:"dashboard,omitempty"`
-	Dependencies  map[string]string `json:"dependencies,omitempty"`
-	RunScripts    bool              `json:"run_scripts"`
+	SchemaVersion int                `json:"schema_version"`
+	Name          string             `json:"name"`
+	Version       string             `json:"version"`
+	Routes        []RouteEntry       `json:"routes"`
+	Menu          MenuEntries        `json:"menu,omitempty"`
+	Dashboard     MenuEntries        `json:"dashboard,omitempty"`
+	ProfileCards  ProfileCardEntries `json:"profile_cards,omitempty"`
+	Dependencies  map[string]string  `json:"dependencies,omitempty"`
+	RunScripts    bool               `json:"run_scripts"`
 }
 
 // RouteEntry 是 manifest.routes 中的一项。
@@ -70,6 +72,37 @@ func (m *MenuEntries) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// ProfileCardEntry 是 manifest.profile_cards 项。
+type ProfileCardEntry struct {
+	Title    string `json:"title"`
+	Module   string `json:"module"`
+	Priority *int   `json:"priority,omitempty"`
+}
+
+// ProfileCardEntries 支持 JSON 中的单对象或数组。
+type ProfileCardEntries []ProfileCardEntry
+
+// UnmarshalJSON 实现了灵活的单对象/数组解析。
+func (p *ProfileCardEntries) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	if data[0] == '[' {
+		var list []ProfileCardEntry
+		if err := json.Unmarshal(data, &list); err != nil {
+			return err
+		}
+		*p = list
+		return nil
+	}
+	var single ProfileCardEntry
+	if err := json.Unmarshal(data, &single); err != nil {
+		return err
+	}
+	*p = []ProfileCardEntry{single}
+	return nil
+}
+
 // namePattern 与契约一致：`[a-z0-9]([a-z0-9-]*[a-z0-9])?`，最长 64 字符。
 var namePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 
@@ -92,8 +125,8 @@ func ValidateManifest(m *Manifest) []string {
 	if !versionPattern.MatchString(m.Version) {
 		errs = append(errs, "version 必须为 major.minor.patch 语义版本")
 	}
-	if len(m.Routes) == 0 {
-		errs = append(errs, "routes 不能为空")
+	if len(m.Routes) == 0 && len(m.ProfileCards) == 0 {
+		errs = append(errs, "routes 与 profile_cards 不能同时为空")
 	}
 	for i, r := range m.Routes {
 		if err := validateRoutePath(r.Path); err != "" {
@@ -117,6 +150,14 @@ func ValidateManifest(m *Manifest) []string {
 		}
 		if !routePathExists(m.Routes, de.Path) {
 			errs = append(errs, fmt.Sprintf("dashboard[%d].path 必须引用本包 routes 中的路径", i))
+		}
+	}
+	for i, pc := range m.ProfileCards {
+		if strings.TrimSpace(pc.Title) == "" {
+			errs = append(errs, fmt.Sprintf("profile_cards[%d].title 必填", i))
+		}
+		if err := validateModulePath(pc.Module); err != "" {
+			errs = append(errs, fmt.Sprintf("profile_cards[%d].module 非法: %s", i, err))
 		}
 	}
 	return errs
