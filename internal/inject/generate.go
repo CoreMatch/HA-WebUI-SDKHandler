@@ -120,56 +120,74 @@ func writeSDKRoutes(dir string, sdks []*Sdk) error {
 	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
 	b.WriteString("// 路由采用 React.lazy 按需加载，Suspense 包裹。<Route> 直接使用绝对路径，\n")
 	b.WriteString("// 可挂载在任意层级；sdkRoutes 为 React Router 的 RouteObject 形态。\n")
-	b.WriteString("import { lazy, Suspense } from 'react';\n")
-	b.WriteString("import type { ReactNode } from 'react';\n")
-	b.WriteString("import type { RouteObject } from 'react-router-dom';\n")
-	b.WriteString("import { Route } from 'react-router-dom';\n\n")
-	b.WriteString("function SdkRouteFallback() {\n")
-	b.WriteString("  return <span>Loading...</span>;\n")
-	b.WriteString("}\n\n")
 
+	hasRoutes := false
 	for _, sdk := range sdks {
-		for i, r := range sdk.Manifest.Routes {
-			// 组件名：服务名+序号，保证唯一且为合法标识符。
-			ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
-			b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(sdk.Name, r.Module)) + "));\n")
+		if len(sdk.Manifest.Routes) > 0 {
+			hasRoutes = true
+			break
 		}
 	}
-	b.WriteString("\n")
+
+	if hasRoutes {
+		b.WriteString("import { lazy, Suspense } from 'react';\n")
+		b.WriteString("import type { ReactNode } from 'react';\n")
+		b.WriteString("import type { RouteObject } from 'react-router-dom';\n")
+		b.WriteString("import { Route } from 'react-router-dom';\n\n")
+		b.WriteString("function SdkRouteFallback() {\n")
+		b.WriteString("  return <span>Loading...</span>;\n")
+		b.WriteString("}\n\n")
+
+		for _, sdk := range sdks {
+			for i, r := range sdk.Manifest.Routes {
+				// 组件名：服务名+序号，保证唯一且为合法标识符。
+				ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
+				b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(sdk.Name, r.Module)) + "));\n")
+			}
+		}
+		b.WriteString("\n")
+	} else {
+		b.WriteString("import type { ReactNode } from 'react';\n")
+		b.WriteString("import type { RouteObject } from 'react-router-dom';\n\n")
+	}
 
 	// sdkRouteElements：ReactNode 数组，供模板直接插入 <Routes>。
 	// React Router 要求 <Routes> 的直接子节点必须是 <Route> 或 Fragment，
 	// 因此 Suspense 必须放进 route.element，不能包在 <Route> 外层。
 	b.WriteString("export const sdkRouteElements: ReactNode[] = [\n")
-	for _, sdk := range sdks {
-		for i, r := range sdk.Manifest.Routes {
-			ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
-			b.WriteString("  <Route\n")
-			b.WriteString("    key=" + jsString(sdk.Name+"-"+r.Path) + "\n")
-			b.WriteString("    path=" + jsString(r.Path) + "\n")
-			b.WriteString("    element={\n")
-			b.WriteString("      <Suspense fallback={<SdkRouteFallback />}>\n")
-			b.WriteString("        <" + ident + " />\n")
-			b.WriteString("      </Suspense>\n")
-			b.WriteString("    }\n")
-			b.WriteString("  />,\n")
+	if hasRoutes {
+		for _, sdk := range sdks {
+			for i, r := range sdk.Manifest.Routes {
+				ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
+				b.WriteString("  <Route\n")
+				b.WriteString("    key=" + jsString(sdk.Name+"-"+r.Path) + "\n")
+				b.WriteString("    path=" + jsString(r.Path) + "\n")
+				b.WriteString("    element={\n")
+				b.WriteString("      <Suspense fallback={<SdkRouteFallback />}>\n")
+				b.WriteString("        <" + ident + " />\n")
+				b.WriteString("      </Suspense>\n")
+				b.WriteString("    }\n")
+				b.WriteString("  />,\n")
+			}
 		}
 	}
 	b.WriteString("];\n\n")
 
 	// sdkRoutes：RouteObject 数组。
 	b.WriteString("export const sdkRoutes: RouteObject[] = [\n")
-	for _, sdk := range sdks {
-		for i, r := range sdk.Manifest.Routes {
-			ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
-			b.WriteString("  {\n")
-			b.WriteString("    path: " + jsString(r.Path) + ",\n")
-			b.WriteString("    element: (\n")
-			b.WriteString("      <Suspense fallback={<SdkRouteFallback />}>\n")
-			b.WriteString("        <" + ident + " />\n")
-			b.WriteString("      </Suspense>\n")
-			b.WriteString("    ),\n")
-			b.WriteString("  },\n")
+	if hasRoutes {
+		for _, sdk := range sdks {
+			for i, r := range sdk.Manifest.Routes {
+				ident := componentIdent("SdkRoute", sdk.Name, fmt.Sprintf("%d", i))
+				b.WriteString("  {\n")
+				b.WriteString("    path: " + jsString(r.Path) + ",\n")
+				b.WriteString("    element: (\n")
+				b.WriteString("      <Suspense fallback={<SdkRouteFallback />}>\n")
+				b.WriteString("        <" + ident + " />\n")
+				b.WriteString("      </Suspense>\n")
+				b.WriteString("    ),\n")
+				b.WriteString("  },\n")
+			}
 		}
 	}
 	b.WriteString("];\n")
@@ -207,42 +225,58 @@ func writeSDKNavbar(dir string, sdks []*Sdk) error {
 func writeSDKDashboard(dir string, sdks []*Sdk) error {
 	var b strings.Builder
 	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
-	b.WriteString("import { lazy } from 'react';\n")
-	b.WriteString("import type { SdkDashboardItem } from '../types/generated-sdk';\n\n")
 
-	// 先为需要 dashboard 的 SDK 生成 lazy 组件，避免 IIFE。
-	b.WriteString("// 懒加载的 dashboard 路由组件（按服务声明）。\n")
+	hasDashboard := false
 	for _, sdk := range sdks {
-		m := sdk.Manifest
-		for i, de := range m.Dashboard {
-			mod := moduleForPath(m, de.Path)
-			if mod == "" {
-				// dashboard.path 已校验引用本包 routes ；防御性兜底。
-				continue
-			}
-			ident := componentIdent("SdkDash", sdk.Name, fmt.Sprintf("%d", i))
-			b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(m.Name, mod)) + "));\n")
+		if len(sdk.Manifest.Dashboard) > 0 {
+			hasDashboard = true
+			break
 		}
 	}
-	b.WriteString("\n")
+
+	if hasDashboard {
+		b.WriteString("import { lazy } from 'react';\n")
+	}
+	b.WriteString("import type { SdkDashboardItem } from '../types/generated-sdk';\n\n")
+
+	if hasDashboard {
+		// 先为需要 dashboard 的 SDK 生成 lazy 组件，避免 IIFE。
+		b.WriteString("// 懒加载的 dashboard 路由组件（按服务声明）。\n")
+		for _, sdk := range sdks {
+			m := sdk.Manifest
+			for i, de := range m.Dashboard {
+				mod := moduleForPath(m, de.Path)
+				if mod == "" {
+					// dashboard.path 已校验引用本包 routes ；防御性兜底。
+					continue
+				}
+				ident := componentIdent("SdkDash", sdk.Name, fmt.Sprintf("%d", i))
+				b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(m.Name, mod)) + "));\n")
+			}
+		}
+		b.WriteString("\n")
+	}
+
 	b.WriteString("export const sdkDashboardItems: SdkDashboardItem[] = [\n")
-	for _, sdk := range sdks {
-		m := sdk.Manifest
-		for i, de := range m.Dashboard {
-			mod := moduleForPath(m, de.Path)
-			if mod == "" {
-				continue
+	if hasDashboard {
+		for _, sdk := range sdks {
+			m := sdk.Manifest
+			for i, de := range m.Dashboard {
+				mod := moduleForPath(m, de.Path)
+				if mod == "" {
+					continue
+				}
+				ident := componentIdent("SdkDash", sdk.Name, fmt.Sprintf("%d", i))
+				b.WriteString("  {\n")
+				key := m.Name
+				if len(m.Dashboard) > 1 {
+					key = fmt.Sprintf("%s-%d", m.Name, i)
+				}
+				b.WriteString("    key: " + jsString(key) + ",\n")
+				b.WriteString("    label: " + jsString(de.Label) + ",\n")
+				b.WriteString("    element: <" + ident + " />,\n")
+				b.WriteString("  },\n")
 			}
-			ident := componentIdent("SdkDash", sdk.Name, fmt.Sprintf("%d", i))
-			b.WriteString("  {\n")
-			key := m.Name
-			if len(m.Dashboard) > 1 {
-				key = fmt.Sprintf("%s-%d", m.Name, i)
-			}
-			b.WriteString("    key: " + jsString(key) + ",\n")
-			b.WriteString("    label: " + jsString(de.Label) + ",\n")
-			b.WriteString("    element: <" + ident + " />,\n")
-			b.WriteString("  },\n")
 		}
 	}
 	b.WriteString("];\n")

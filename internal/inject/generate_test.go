@@ -121,3 +121,30 @@ func TestWriteSDKDashboardMultiPage(t *testing.T) {
 		t.Errorf("missing second dashboard item: %s", got)
 	}
 }
+
+func TestWriteSDKEmpty(t *testing.T) {
+	dir := t.TempDir()
+
+	// 1. Test empty routes
+	if err := writeSDKRoutes(dir, []*Sdk{}); err != nil {
+		t.Fatalf("writeSDKRoutes returned error: %v", err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, "sdk-routes.tsx"))
+	got := string(raw)
+	if strings.Contains(got, "import { lazy, Suspense } from 'react'") {
+		t.Errorf("sdk-routes.tsx should not contain lazy import when empty:\n%s", got)
+	}
+	if strings.Contains(got, "function SdkRouteFallback()") {
+		t.Errorf("sdk-routes.tsx should not contain fallback when empty:\n%s", got)
+	}
+
+	// 2. Test empty dashboard
+	if err := writeSDKDashboard(dir, []*Sdk{}); err != nil {
+		t.Fatalf("writeSDKDashboard returned error: %v", err)
+	}
+	raw, _ = os.ReadFile(filepath.Join(dir, "sdk-dashboard.tsx"))
+	got = string(raw)
+	if strings.Contains(got, "import { lazy } from 'react'") {
+		t.Errorf("sdk-dashboard.tsx should not contain lazy import when empty:\n%s", got)
+	}
+}
