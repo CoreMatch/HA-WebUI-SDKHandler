@@ -342,6 +342,37 @@ func isEmptyDir(name string) (bool, error) {
 	return false, err // 读到了或者出错
 }
 
+// templatePollLoop 按 template_poll_interval_seconds 自动拉取模板。
+func (a *app) templatePollLoop(ctx context.Context) {
+	interval := time.Duration(a.cfg.Build.TemplatePollInterval) * time.Second
+	if interval <= 0 {
+		log.Println("自动拉取模板已禁用 (template_poll_interval_seconds=0)")
+		return
+	}
+
+	log.Printf("启动模板自动拉取协程，间隔: %v", interval)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(interval):
+		}
+
+		log.Printf("正在自动检查模板更新...")
+		if err := a.orchestrator.pullLatestTemplate(); err != nil {
+			log.Printf("自动拉取模板失败: %v", err)
+			continue
+		}
+
+		// 拉取成功后触发构建
+		if err := a.triggerBuild(ctx, true); err != nil {
+			if !errors.Is(err, errNoChange) {
+				log.Printf("自动拉取模板后触发构建失败: %v", err)
+			}
+		}
+	}
+}
+
 // pollLoop 按 poll_interval_seconds 轮询 SDK 列表，变化即构建。
 func (a *app) pollLoop(ctx context.Context) {
 	// 启动时立即触发一次
@@ -443,6 +474,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go a.pollLoop(ctx)
+	go a.templatePollLoop(ctx)
 
 	// HTTP API。
 	gin.SetMode(gin.ReleaseMode)
@@ -544,7 +576,16 @@ func (a *app) handleMaintenancePull(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "模板拉取成功"})
+
+	// 拉取成功后，立即触发一次强制构建
+	go func() {
+		log.Printf("手动拉取模板成功，开始触发强制构建...")
+		if err := a.triggerBuild(context.Background(), true); err != nil {
+			log.Printf("手动拉取模板后的触发构建失败: %v", err)
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "模板拉取成功，已在后台触发强制构建"})
 }
 
 // handleBuildStatus 返回最近一次构建结果。

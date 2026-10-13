@@ -51,7 +51,8 @@ type BuildConfig struct {
 	NPMCommand           string   `yaml:"npm_command"`
 	IgnoreScriptsDefault bool     `yaml:"ignore_scripts_default"`
 	NPMBlacklist         []string `yaml:"npm_blacklist"`
-	BuildTimeout         int      `yaml:"build_timeout_seconds"` // 单次构建整体超时（秒），0 表示默认 20 分钟
+	BuildTimeout         int      `yaml:"build_timeout_seconds"`          // 单次构建整体超时（秒），0 表示默认 20 分钟
+	TemplatePollInterval int      `yaml:"template_poll_interval_seconds"` // 自动拉取模板的时间间隔（秒），0 表示不自动拉取
 }
 
 // Load 读取并解析配置文件。
@@ -126,6 +127,7 @@ func CreateDefault(path string) error {
 			CurrentLink:          "./dist",
 			NPMCommand:           "npm",
 			IgnoreScriptsDefault: true,
+			TemplatePollInterval: 0, // 默认不自动拉取
 		},
 		StateDir:       "./state",
 		ServeArtifacts: false,
@@ -202,6 +204,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Build.BuildTimeout <= 0 {
 		c.Build.BuildTimeout = 20 * 60
+	}
+	if c.Build.TemplatePollInterval < 0 {
+		c.Build.TemplatePollInterval = 0
 	}
 	if c.StateDir == "" {
 		c.StateDir = "./state"

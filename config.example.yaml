@@ -28,6 +28,7 @@ build:
   # 无论 run_scripts 如何，命中黑名单即拒绝。
   npm_blacklist: []
   ignore_scripts_default: true          # 默认以 --ignore-scripts 安装，包声明 run_scripts:true 除外
+  template_poll_interval_seconds: 0     # 自动拉取模板的时间间隔（秒），0 表示不自动拉取
 
 state_dir: "./state"
 
