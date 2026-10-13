@@ -77,11 +77,19 @@ func writeSDKManifest(dir string, sdks []*Sdk) error {
 			b.WriteString(" },\n")
 		}
 		b.WriteString("    ],\n")
-		if m.Menu != nil {
-			b.WriteString("    menu: { label: " + jsString(m.Menu.Label) + ", path: " + jsString(m.Menu.Path) + " },\n")
+		if len(m.Menu) > 0 {
+			b.WriteString("    menu: [\n")
+			for _, me := range m.Menu {
+				b.WriteString("      { label: " + jsString(me.Label) + ", path: " + jsString(me.Path) + " },\n")
+			}
+			b.WriteString("    ],\n")
 		}
-		if m.Dashboard != nil {
-			b.WriteString("    dashboard: { label: " + jsString(m.Dashboard.Label) + ", path: " + jsString(m.Dashboard.Path) + " },\n")
+		if len(m.Dashboard) > 0 {
+			b.WriteString("    dashboard: [\n")
+			for _, de := range m.Dashboard {
+				b.WriteString("      { label: " + jsString(de.Label) + ", path: " + jsString(de.Path) + " },\n")
+			}
+			b.WriteString("    ],\n")
 		}
 		b.WriteString("    runScripts: " + boolLit(sdkManifestRunScripts(m)) + ",\n")
 		b.WriteString("    sha256: " + jsString(sdk.SHA256) + ",\n")
@@ -177,14 +185,17 @@ func writeSDKNavbar(dir string, sdks []*Sdk) error {
 	b.WriteString("export const sdkNavbarItems: SdkNavbarItem[] = [\n")
 	for _, sdk := range sdks {
 		m := sdk.Manifest
-		if m.Menu == nil {
-			continue
+		for i, me := range m.Menu {
+			b.WriteString("  {\n")
+			key := m.Name
+			if len(m.Menu) > 1 {
+				key = fmt.Sprintf("%s-%d", m.Name, i)
+			}
+			b.WriteString("    key: " + jsString(key) + ",\n")
+			b.WriteString("    label: " + jsString(me.Label) + ",\n")
+			b.WriteString("    path: " + jsString(me.Path) + ",\n")
+			b.WriteString("  },\n")
 		}
-		b.WriteString("  {\n")
-		b.WriteString("    key: " + jsString(m.Name) + ",\n")
-		b.WriteString("    label: " + jsString(m.Menu.Label) + ",\n")
-		b.WriteString("    path: " + jsString(m.Menu.Path) + ",\n")
-		b.WriteString("  },\n")
 	}
 	b.WriteString("];\n")
 	return writeGenerated(dir, "sdk-navbar.tsx", b.String())
@@ -203,34 +214,36 @@ func writeSDKDashboard(dir string, sdks []*Sdk) error {
 	b.WriteString("// 懒加载的 dashboard 路由组件（按服务声明）。\n")
 	for _, sdk := range sdks {
 		m := sdk.Manifest
-		if m.Dashboard == nil {
-			continue
+		for i, de := range m.Dashboard {
+			mod := moduleForPath(m, de.Path)
+			if mod == "" {
+				// dashboard.path 已校验引用本包 routes ；防御性兜底。
+				continue
+			}
+			ident := componentIdent("SdkDash", sdk.Name, fmt.Sprintf("%d", i))
+			b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(m.Name, mod)) + "));\n")
 		}
-		mod := moduleForPath(m, m.Dashboard.Path)
-		if mod == "" {
-			// dashboard.path 已校验引用本包 routes；防御性兜底。
-			continue
-		}
-		ident := componentIdent("SdkDash", sdk.Name, "")
-		b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(m.Name, mod)) + "));\n")
 	}
 	b.WriteString("\n")
 	b.WriteString("export const sdkDashboardItems: SdkDashboardItem[] = [\n")
 	for _, sdk := range sdks {
 		m := sdk.Manifest
-		if m.Dashboard == nil {
-			continue
+		for i, de := range m.Dashboard {
+			mod := moduleForPath(m, de.Path)
+			if mod == "" {
+				continue
+			}
+			ident := componentIdent("SdkDash", sdk.Name, fmt.Sprintf("%d", i))
+			b.WriteString("  {\n")
+			key := m.Name
+			if len(m.Dashboard) > 1 {
+				key = fmt.Sprintf("%s-%d", m.Name, i)
+			}
+			b.WriteString("    key: " + jsString(key) + ",\n")
+			b.WriteString("    label: " + jsString(de.Label) + ",\n")
+			b.WriteString("    element: <" + ident + " />,\n")
+			b.WriteString("  },\n")
 		}
-		mod := moduleForPath(m, m.Dashboard.Path)
-		if mod == "" {
-			continue
-		}
-		ident := componentIdent("SdkDash", sdk.Name, "")
-		b.WriteString("  {\n")
-		b.WriteString("    key: " + jsString(m.Name) + ",\n")
-		b.WriteString("    label: " + jsString(m.Dashboard.Label) + ",\n")
-		b.WriteString("    element: <" + ident + " />,\n")
-		b.WriteString("  },\n")
 	}
 	b.WriteString("];\n")
 	return writeGenerated(dir, "sdk-dashboard.tsx", b.String())

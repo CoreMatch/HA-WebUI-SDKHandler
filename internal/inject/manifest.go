@@ -12,6 +12,7 @@
 package inject
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -26,8 +27,8 @@ type Manifest struct {
 	Name          string            `json:"name"`
 	Version       string            `json:"version"`
 	Routes        []RouteEntry      `json:"routes"`
-	Menu          *MenuEntry        `json:"menu,omitempty"`
-	Dashboard     *MenuEntry        `json:"dashboard,omitempty"`
+	Menu          MenuEntries       `json:"menu,omitempty"`
+	Dashboard     MenuEntries       `json:"dashboard,omitempty"`
 	Dependencies  map[string]string `json:"dependencies,omitempty"`
 	RunScripts    bool              `json:"run_scripts"`
 }
@@ -43,6 +44,30 @@ type RouteEntry struct {
 type MenuEntry struct {
 	Label string `json:"label"`
 	Path  string `json:"path"`
+}
+
+// MenuEntries 支持 JSON 中的单对象或数组。
+type MenuEntries []MenuEntry
+
+// UnmarshalJSON 实现了灵活的单对象/数组解析。
+func (m *MenuEntries) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || string(data) == "null" {
+		return nil
+	}
+	if data[0] == '[' {
+		var list []MenuEntry
+		if err := json.Unmarshal(data, &list); err != nil {
+			return err
+		}
+		*m = list
+		return nil
+	}
+	var single MenuEntry
+	if err := json.Unmarshal(data, &single); err != nil {
+		return err
+	}
+	*m = []MenuEntry{single}
+	return nil
 }
 
 // namePattern 与契约一致：`[a-z0-9]([a-z0-9-]*[a-z0-9])?`，最长 64 字符。
@@ -78,20 +103,20 @@ func ValidateManifest(m *Manifest) []string {
 			errs = append(errs, fmt.Sprintf("routes[%d].module 非法: %s", i, err))
 		}
 	}
-	if m.Menu != nil {
-		if strings.TrimSpace(m.Menu.Label) == "" {
-			errs = append(errs, "menu.label 必填")
+	for i, me := range m.Menu {
+		if strings.TrimSpace(me.Label) == "" {
+			errs = append(errs, fmt.Sprintf("menu[%d].label 必填", i))
 		}
-		if !routePathExists(m.Routes, m.Menu.Path) {
-			errs = append(errs, "menu.path 必须引用本包 routes 中的路径")
+		if !routePathExists(m.Routes, me.Path) {
+			errs = append(errs, fmt.Sprintf("menu[%d].path 必须引用本包 routes 中的路径", i))
 		}
 	}
-	if m.Dashboard != nil {
-		if strings.TrimSpace(m.Dashboard.Label) == "" {
-			errs = append(errs, "dashboard.label 必填")
+	for i, de := range m.Dashboard {
+		if strings.TrimSpace(de.Label) == "" {
+			errs = append(errs, fmt.Sprintf("dashboard[%d].label 必填", i))
 		}
-		if !routePathExists(m.Routes, m.Dashboard.Path) {
-			errs = append(errs, "dashboard.path 必须引用本包 routes 中的路径")
+		if !routePathExists(m.Routes, de.Path) {
+			errs = append(errs, fmt.Sprintf("dashboard[%d].path 必须引用本包 routes 中的路径", i))
 		}
 	}
 	return errs
