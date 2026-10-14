@@ -125,8 +125,8 @@ func ValidateManifest(m *Manifest) []string {
 	if !versionPattern.MatchString(m.Version) {
 		errs = append(errs, "version 必须为 major.minor.patch 语义版本")
 	}
-	if len(m.Routes) == 0 && len(m.ProfileCards) == 0 {
-		errs = append(errs, "routes 与 profile_cards 不能同时为空")
+        if len(m.Routes) == 0 && len(m.ProfileCards) == 0 {
+                errs = append(errs, "routes 与 profile_cards 不能同时为空")
 	}
 	for i, r := range m.Routes {
 		if err := validateRoutePath(r.Path); err != "" {
