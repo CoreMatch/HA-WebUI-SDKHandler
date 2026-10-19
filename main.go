@@ -73,10 +73,11 @@ func (s *statusHolder) get() *state.BuildRecord {
 
 // orchestrator 执行一次完整构建管线：拉包 -> 复制模板 -> 注入 -> 编译 -> 发布。
 type orchestrator struct {
-	cfg    *config.Config
-	store  *state.Store
-	broker *broker.Client
-	status *statusHolder
+	cfg                *config.Config
+	store              *state.Store
+	broker             *broker.Client
+	status             *statusHolder
+	lastTemplateCommit string // 上次拉取模板时的 commit hash
 }
 
 // runOnce 拉取最新 SDK 列表并构建。changed=false 表示列表无变化（无需构建）。
@@ -282,26 +283,72 @@ func (o *orchestrator) ensureTemplateRepo() error {
 	return nil
 }
 
+// getTemplateCommit 获取模板目录当前的 commit hash。
+func (o *orchestrator) getTemplateCommit() (string, error) {
+	dir := o.cfg.Build.TemplateDir
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = dir
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("获取 git commit 失败: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
 // pullLatestTemplate 在模板目录执行 git pull 以获取最新代码。
-func (o *orchestrator) pullLatestTemplate() error {
+// 如果模板无变化（commit 一致），则返回 errNoChange。
+func (o *orchestrator) pullLatestTemplate() (bool, error) {
 	dir := o.cfg.Build.TemplateDir
 
 	// 确保目录存在且是 git 仓库
 	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
 		// 如果不是 git 仓库，尝试 clone
-		return o.ensureTemplateRepo()
+		if err := o.ensureTemplateRepo(); err != nil {
+			return false, err
+		}
+		// clone 后获取 commit
+		commit, err := o.getTemplateCommit()
+		if err != nil {
+			return false, err
+		}
+		o.lastTemplateCommit = commit
+		return true, nil
+	}
+
+	// 拉取前记录当前 commit
+	oldCommit, err := o.getTemplateCommit()
+	if err != nil {
+		return false, err
 	}
 
 	log.Printf("开始拉取最新模板代码: %s", dir)
 	cmd := exec.Command("git", "pull")
 	cmd.Dir = dir
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git pull 失败: %w, 输出: %s", err, string(output))
+		return false, fmt.Errorf("git pull 失败: %w, 输出: %s", err, string(output))
 	}
-	log.Printf("模板代码拉取成功")
+
+	// 拉取后获取新 commit
+	newCommit, err := o.getTemplateCommit()
+	if err != nil {
+		return false, err
+	}
+
+	// 对比 commit 是否变化
+	if oldCommit == newCommit {
+		log.Printf("模板代码无变化 (commit: %s)", newCommit[:8])
+		return false, nil
+	}
+
+	log.Printf("模板代码已更新: %s -> %s", oldCommit[:8], newCommit[:8])
+	o.lastTemplateCommit = newCommit
 
 	// 拉取后执行 npm install
-	return o.npmInstallTemplate()
+	if err := o.npmInstallTemplate(); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // npmInstallTemplate 在模板目录执行 npm install。
@@ -351,6 +398,18 @@ func (a *app) templatePollLoop(ctx context.Context) {
 	}
 
 	log.Printf("启动模板自动拉取协程，间隔: %v", interval)
+
+	// 启动时立即拉取一次
+	log.Printf("启动时执行初始模板拉取检查...")
+	changed, err := a.orchestrator.pullLatestTemplate()
+	if err != nil {
+		log.Printf("启动时拉取模板失败: %v", err)
+	} else if changed {
+		if err := a.triggerBuild(ctx, true); err != nil && !errors.Is(err, errNoChange) {
+			log.Printf("启动时拉取模板后触发构建失败: %v", err)
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -359,15 +418,18 @@ func (a *app) templatePollLoop(ctx context.Context) {
 		}
 
 		log.Printf("正在自动检查模板更新...")
-		if err := a.orchestrator.pullLatestTemplate(); err != nil {
+		changed, err := a.orchestrator.pullLatestTemplate()
+		if err != nil {
 			log.Printf("自动拉取模板失败: %v", err)
 			continue
 		}
 
-		// 拉取成功后触发构建
-		if err := a.triggerBuild(ctx, true); err != nil {
-			if !errors.Is(err, errNoChange) {
-				log.Printf("自动拉取模板后触发构建失败: %v", err)
+		// 拉取成功且有变化时触发构建
+		if changed {
+			if err := a.triggerBuild(ctx, true); err != nil {
+				if !errors.Is(err, errNoChange) {
+					log.Printf("自动拉取模板后触发构建失败: %v", err)
+				}
 			}
 		}
 	}
@@ -572,12 +634,18 @@ func (a *app) opsAuthMiddleware() gin.HandlerFunc {
 
 // handleMaintenancePull 处理立即拉取最新模板的请求。
 func (a *app) handleMaintenancePull(c *gin.Context) {
-	if err := a.orchestrator.pullLatestTemplate(); err != nil {
+	changed, err := a.orchestrator.pullLatestTemplate()
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": err.Error()})
 		return
 	}
 
-	// 拉取成功后，立即触发一次强制构建
+	if !changed {
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "模板代码无变化，无需重新构建"})
+		return
+	}
+
+	// 拉取成功且有变化后，立即触发一次强制构建
 	go func() {
 		log.Printf("手动拉取模板成功，开始触发强制构建...")
 		if err := a.triggerBuild(context.Background(), true); err != nil {
