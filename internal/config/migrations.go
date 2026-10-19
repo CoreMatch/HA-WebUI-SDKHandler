@@ -58,6 +58,21 @@ var migrations = []Migration{
 			return nil
 		},
 	},
+	// 从版本 "3" 迁移到 "4": 添加 build.template_poll_interval_seconds
+	{
+		FromVersion: "3",
+		ToVersion:   "4",
+		Migrate: func(cfg map[string]interface{}) error {
+			build, _ := cfg["build"].(map[string]interface{})
+			if build != nil {
+				if build["template_poll_interval_seconds"] == nil {
+					build["template_poll_interval_seconds"] = 0
+				}
+			}
+			cfg["version"] = "4"
+			return nil
+		},
+	},
 }
 
 // Migrate 执行配置迁移。

@@ -13,7 +13,7 @@ import (
 const (
 	// ConfigVersion 是当前代码预期的配置文件版本。
 	// 当配置结构发生不兼容变更时需增加此版本号，并在 migrations.go 中编写迁移逻辑。
-	ConfigVersion = "3"
+	ConfigVersion = "4"
 )
 
 // Config 是顶层配置结构。
@@ -204,9 +204,6 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Build.BuildTimeout <= 0 {
 		c.Build.BuildTimeout = 20 * 60
-	}
-	if c.Build.TemplatePollInterval < 0 {
-		c.Build.TemplatePollInterval = 0
 	}
 	if c.StateDir == "" {
 		c.StateDir = "./state"
