@@ -322,7 +322,16 @@ func (o *orchestrator) pullLatestTemplate() (bool, error) {
 	}
 
 	log.Printf("开始拉取最新模板代码: %s", dir)
-	cmd := exec.Command("git", "pull")
+
+	// 丢弃本地所有修改，完全信任上游
+	cmd := exec.Command("git", "checkout", ".")
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return false, fmt.Errorf("git checkout 失败: %w, 输出: %s", err, string(output))
+	}
+
+	// 拉取最新代码
+	cmd = exec.Command("git", "pull")
 	cmd.Dir = dir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return false, fmt.Errorf("git pull 失败: %w, 输出: %s", err, string(output))
