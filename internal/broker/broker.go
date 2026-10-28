@@ -34,8 +34,9 @@ type SdkPackageMeta struct {
 	RunScripts bool   `json:"run_scripts"`
 	// Routes 仅用于诊断，形态由宿主契约决定（当前为对象数组），因此使用
 	// RawMessage 宽容接收，避免列表解析因诊断字段变化而失败。
-	Routes       []json.RawMessage `json:"routes,omitempty"`
-	RegisteredAt string            `json:"registered_at,omitempty"`
+	Routes             []json.RawMessage `json:"routes,omitempty"`
+	CriticalOperations []json.RawMessage `json:"critical_operations,omitempty"`
+	RegisteredAt       string            `json:"registered_at,omitempty"`
 }
 
 // Client 是 HRPAuth SDK 包客户端。

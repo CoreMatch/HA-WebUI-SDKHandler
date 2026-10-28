@@ -91,17 +91,17 @@ func writeSDKManifest(dir string, sdks []*Sdk) error {
 			}
 			b.WriteString("    ],\n")
 		}
-                if len(m.ProfileCards) > 0 {
-                        b.WriteString("    profileCards: [\n")
-                        for _, pc := range m.ProfileCards {
-                                b.WriteString("      { title: " + jsString(pc.Title) + ", module: " + jsString(pc.Module))
-                                if pc.Priority != nil {
-                                        b.WriteString(", priority: " + fmt.Sprintf("%d", *pc.Priority))
-                                }
-                                b.WriteString(" },\n")
-                        }
-                        b.WriteString("    ],\n")
-                }
+		if len(m.ProfileCards) > 0 {
+			b.WriteString("    profileCards: [\n")
+			for _, pc := range m.ProfileCards {
+				b.WriteString("      { title: " + jsString(pc.Title) + ", module: " + jsString(pc.Module))
+				if pc.Priority != nil {
+					b.WriteString(", priority: " + fmt.Sprintf("%d", *pc.Priority))
+				}
+				b.WriteString(" },\n")
+			}
+			b.WriteString("    ],\n")
+		}
 		b.WriteString("    runScripts: " + boolLit(sdkManifestRunScripts(m)) + ",\n")
 		b.WriteString("    sha256: " + jsString(sdk.SHA256) + ",\n")
 		b.WriteString("  },\n")
@@ -294,62 +294,82 @@ func writeSDKDashboard(dir string, sdks []*Sdk) error {
 	return writeGenerated(dir, "sdk-dashboard.tsx", b.String())
 }
 
+// writeSDKCriticalOperations generates route links for the host's
+// Critical Operations section.
+func writeSDKCriticalOperations(dir string, sdks []*Sdk) error {
+	var b strings.Builder
+	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
+	b.WriteString("import type { SdkCriticalOperationItem } from '../types/generated-sdk';\n\n")
+	b.WriteString("export const sdkCriticalOperations: SdkCriticalOperationItem[] = [\n")
+	for _, sdk := range sdks {
+		for i, operation := range sdk.Manifest.CriticalOperations {
+			b.WriteString("  {\n")
+			b.WriteString("    key: " + jsString(fmt.Sprintf("%s-critical-operation-%d", sdk.Name, i)) + ",\n")
+			b.WriteString("    label: " + jsString(operation.Label) + ",\n")
+			b.WriteString("    path: " + jsString(operation.Path) + ",\n")
+			b.WriteString("  },\n")
+		}
+	}
+	b.WriteString("];\n")
+	return writeGenerated(dir, "sdk-critical-operations.ts", b.String())
+}
+
 // writeSDKProfileCards 生成 sdk-profile-cards.tsx：
 // `export const sdkProfileCards: SdkProfileCardItem[]`，按 SDK 聚合顺序写入
 // loadOrder，供 Profile 页在 priority 相同或缺省时稳定排序。
 func writeSDKProfileCards(dir string, sdks []*Sdk) error {
-        var b strings.Builder
-        b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
+	var b strings.Builder
+	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
 
-        hasProfileCards := false
-        for _, sdk := range sdks {
-                if len(sdk.Manifest.ProfileCards) > 0 {
-                        hasProfileCards = true
-                        break
-                }
-        }
+	hasProfileCards := false
+	for _, sdk := range sdks {
+		if len(sdk.Manifest.ProfileCards) > 0 {
+			hasProfileCards = true
+			break
+		}
+	}
 
-        if hasProfileCards {
-                b.WriteString("import { lazy } from 'react';\n")
-        }
-        b.WriteString("import type { SdkProfileCardItem } from '../types/generated-sdk';\n\n")
+	if hasProfileCards {
+		b.WriteString("import { lazy } from 'react';\n")
+	}
+	b.WriteString("import type { SdkProfileCardItem } from '../types/generated-sdk';\n\n")
 
-        if hasProfileCards {
-                b.WriteString("// 懒加载的 Profile 卡片组件（按服务声明）。\n")
-                for _, sdk := range sdks {
-                        for i, pc := range sdk.Manifest.ProfileCards {
-                                ident := componentIdent("SdkProfileCard", sdk.Name, fmt.Sprintf("%d", i))
-                                b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(sdk.Name, pc.Module)) + "));\n")
-                        }
-                }
-                b.WriteString("\n")
-        }
+	if hasProfileCards {
+		b.WriteString("// 懒加载的 Profile 卡片组件（按服务声明）。\n")
+		for _, sdk := range sdks {
+			for i, pc := range sdk.Manifest.ProfileCards {
+				ident := componentIdent("SdkProfileCard", sdk.Name, fmt.Sprintf("%d", i))
+				b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(sdk.Name, pc.Module)) + "));\n")
+			}
+		}
+		b.WriteString("\n")
+	}
 
-        b.WriteString("export const sdkProfileCards: SdkProfileCardItem[] = [\n")
-        loadOrder := 0
-        if hasProfileCards {
-                for _, sdk := range sdks {
-                        for i, pc := range sdk.Manifest.ProfileCards {
-                                ident := componentIdent("SdkProfileCard", sdk.Name, fmt.Sprintf("%d", i))
-                                key := sdk.Name
-                                if len(sdk.Manifest.ProfileCards) > 1 {
-                                        key = fmt.Sprintf("%s-%d", sdk.Name, i)
-                                }
-                                b.WriteString("  {\n")
-                                b.WriteString("    key: " + jsString(key) + ",\n")
-                                b.WriteString("    title: " + jsString(pc.Title) + ",\n")
-                                if pc.Priority != nil {
-                                        b.WriteString("    priority: " + fmt.Sprintf("%d", *pc.Priority) + ",\n")
-                                }
-                                b.WriteString("    loadOrder: " + fmt.Sprintf("%d", loadOrder) + ",\n")
-                                b.WriteString("    element: <" + ident + " />,\n")
-                                b.WriteString("  },\n")
-                                loadOrder++
-                        }
-                }
-        }
-        b.WriteString("];\n")
-        return writeGenerated(dir, "sdk-profile-cards.tsx", b.String())
+	b.WriteString("export const sdkProfileCards: SdkProfileCardItem[] = [\n")
+	loadOrder := 0
+	if hasProfileCards {
+		for _, sdk := range sdks {
+			for i, pc := range sdk.Manifest.ProfileCards {
+				ident := componentIdent("SdkProfileCard", sdk.Name, fmt.Sprintf("%d", i))
+				key := sdk.Name
+				if len(sdk.Manifest.ProfileCards) > 1 {
+					key = fmt.Sprintf("%s-%d", sdk.Name, i)
+				}
+				b.WriteString("  {\n")
+				b.WriteString("    key: " + jsString(key) + ",\n")
+				b.WriteString("    title: " + jsString(pc.Title) + ",\n")
+				if pc.Priority != nil {
+					b.WriteString("    priority: " + fmt.Sprintf("%d", *pc.Priority) + ",\n")
+				}
+				b.WriteString("    loadOrder: " + fmt.Sprintf("%d", loadOrder) + ",\n")
+				b.WriteString("    element: <" + ident + " />,\n")
+				b.WriteString("  },\n")
+				loadOrder++
+			}
+		}
+	}
+	b.WriteString("];\n")
+	return writeGenerated(dir, "sdk-profile-cards.tsx", b.String())
 }
 
 // moduleForPath 返回 manifest 中匹配指定路由 path 的 module 路径。

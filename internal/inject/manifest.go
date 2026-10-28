@@ -9,7 +9,7 @@
 //  4. 合并所有 manifest.dependencies 到 work_dir/package.json（deep merge）。
 //  5. 在 work_dir/src/generated/ 下生成聚合文件：
 //     sdk-manifest.ts / sdk-routes.tsx / sdk-navbar.tsx /
-//     sdk-dashboard.tsx / sdk-profile-cards.tsx。
+//     sdk-dashboard.tsx / sdk-critical-operations.ts / sdk-profile-cards.tsx。
 package inject
 
 import (
@@ -24,15 +24,16 @@ const SchemaVersion = 1
 
 // Manifest 对应 SDK 包根目录的 manifest.json，字段与契约一一对应。
 type Manifest struct {
-	SchemaVersion int                `json:"schema_version"`
-	Name          string             `json:"name"`
-	Version       string             `json:"version"`
-	Routes        []RouteEntry       `json:"routes"`
-	Menu          MenuEntries        `json:"menu,omitempty"`
-	Dashboard     MenuEntries        `json:"dashboard,omitempty"`
-	ProfileCards  ProfileCardEntries `json:"profile_cards,omitempty"`
-	Dependencies  map[string]string  `json:"dependencies,omitempty"`
-	RunScripts    bool               `json:"run_scripts"`
+	SchemaVersion      int                `json:"schema_version"`
+	Name               string             `json:"name"`
+	Version            string             `json:"version"`
+	Routes             []RouteEntry       `json:"routes"`
+	Menu               MenuEntries        `json:"menu,omitempty"`
+	Dashboard          MenuEntries        `json:"dashboard,omitempty"`
+	CriticalOperations MenuEntries        `json:"critical_operations,omitempty"`
+	ProfileCards       ProfileCardEntries `json:"profile_cards,omitempty"`
+	Dependencies       map[string]string  `json:"dependencies,omitempty"`
+	RunScripts         bool               `json:"run_scripts"`
 }
 
 // RouteEntry 是 manifest.routes 中的一项。
@@ -125,8 +126,8 @@ func ValidateManifest(m *Manifest) []string {
 	if !versionPattern.MatchString(m.Version) {
 		errs = append(errs, "version 必须为 major.minor.patch 语义版本")
 	}
-        if len(m.Routes) == 0 && len(m.ProfileCards) == 0 {
-                errs = append(errs, "routes 与 profile_cards 不能同时为空")
+	if len(m.Routes) == 0 && len(m.ProfileCards) == 0 {
+		errs = append(errs, "routes 与 profile_cards 不能同时为空")
 	}
 	for i, r := range m.Routes {
 		if err := validateRoutePath(r.Path); err != "" {
@@ -150,6 +151,14 @@ func ValidateManifest(m *Manifest) []string {
 		}
 		if !routePathExists(m.Routes, de.Path) {
 			errs = append(errs, fmt.Sprintf("dashboard[%d].path 必须引用本包 routes 中的路径", i))
+		}
+	}
+	for i, co := range m.CriticalOperations {
+		if strings.TrimSpace(co.Label) == "" {
+			errs = append(errs, fmt.Sprintf("critical_operations[%d].label 必填", i))
+		}
+		if !routePathExists(m.Routes, co.Path) {
+			errs = append(errs, fmt.Sprintf("critical_operations[%d].path 必须引用本包 routes 中的路径", i))
 		}
 	}
 	for i, pc := range m.ProfileCards {

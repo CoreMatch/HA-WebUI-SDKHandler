@@ -72,6 +72,31 @@ func TestValidateManifestMultiPage(t *testing.T) {
 	}
 }
 
+func TestValidateManifestCriticalOperations(t *testing.T) {
+	m := &Manifest{
+		SchemaVersion: 1,
+		Name:          "test-svc",
+		Version:       "1.0.0",
+		Routes: []RouteEntry{
+			{Path: "/security", Module: "src/security"},
+		},
+		CriticalOperations: []MenuEntry{
+			{Label: "Review security settings", Path: "/security"},
+		},
+	}
+
+	if errs := ValidateManifest(m); len(errs) > 0 {
+		t.Fatalf("expected valid critical operation, got %v", errs)
+	}
+
+	m.CriticalOperations[0].Label = " "
+	m.CriticalOperations[0].Path = "/missing"
+	errs := ValidateManifest(m)
+	if len(errs) != 2 {
+		t.Fatalf("expected label and route validation errors, got %v", errs)
+	}
+}
+
 func TestValidateManifestProfileCards(t *testing.T) {
 	priority := 5
 	m := &Manifest{

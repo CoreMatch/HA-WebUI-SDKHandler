@@ -155,7 +155,7 @@ func Inject(opts Options) (*Result, error) {
 		return nil, fmt.Errorf("写回合并后的 package.json 失败: %w", err)
 	}
 
-        // 4. 生成聚合文件。
+	// 4. 生成聚合文件。
 	generatedDir := filepath.Join(opts.WorkDir, "src", "generated")
 	if err := writeSDKManifest(generatedDir, res.SDKs); err != nil {
 		return nil, err
@@ -169,9 +169,12 @@ func Inject(opts Options) (*Result, error) {
 	if err := writeSDKDashboard(generatedDir, res.SDKs); err != nil {
 		return nil, err
 	}
-        if err := writeSDKProfileCards(generatedDir, res.SDKs); err != nil {
-                return nil, err
-        }
+	if err := writeSDKCriticalOperations(generatedDir, res.SDKs); err != nil {
+		return nil, err
+	}
+	if err := writeSDKProfileCards(generatedDir, res.SDKs); err != nil {
+		return nil, err
+	}
 
 	// 5. SDK 集合摘要。
 	res.SDKVersion = fingerprintSDKs(res.SDKList, res.ManifestSums)
