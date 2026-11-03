@@ -1,0 +1,37 @@
+# HA-WebUI-SDKHandler
+
+Build service that polls HRPAuth for SDK source packages, injects them into the
+HRPAuth-WebUI frontend template, compiles the aggregated frontend, and publishes
+the resulting static assets atomically.
+
+## Build & Run
+
+Requires Go 1.25+.
+
+```bash
+go build -o ./build/sdkhandler
+./build/sdkhandler
+```
+
+A multi-stage `Dockerfile` is also provided (`docker build -t ha-webui-sdkhandler .`).
+The runtime image needs `node`, `npm`, and `git` because frontend builds happen at
+runtime; these are included in the provided image.
+
+The service listens on `:2704` (API, incl. `/health`, `/api/build/status`,
+`/api/build/trigger`, `/api/revision`) and `:2705` (maintenance operations).
+
+## Dependencies & Configuration
+
+- Upstream dependency: an HRPAuth core instance (the only SDK package source, via
+  `GET /services/sdk-packages`).
+- Frontend template: a local HRPAuth-WebUI checkout, or the Git URL configured for
+  automatic cloning.
+
+Copy `config.example.yaml` to `config.yaml` and edit it; the file is read from the
+working directory. Required values: `hrpauth.base_url`, `hrpauth.client_id`,
+`hrpauth.client_secret` (OAuth2 service credentials for HRPAuth).
+
+## Documentation
+
+- SDK package format and aggregation pipeline: [HA-Contract — sdk-package.md](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/sdk-package.md)
+- Microservice extension layer (presence / sdk-packages endpoints): [HA-Contract — microservices.md](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/microservices.md)
