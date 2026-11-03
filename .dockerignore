@@ -1,0 +1,12 @@
+.git
+.gitignore
+.kilo
+.trae
+build
+node_modules
+HA-Contract
+HRPAuth-Wiki
+*.md
+config.yaml
+config.yaml.bak.*
+config.example.yaml
