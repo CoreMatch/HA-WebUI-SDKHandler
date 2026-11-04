@@ -27,7 +27,7 @@ one template:
   services directly (`internal/broker/broker.go:1-9`).
 - Poll on an interval (`hrpauth.poll_interval_seconds`, default 60) and build
   when the package list fingerprint changes; manual builds via
-  `POST /api/build/trigger` (`main.go:448-471`, `main.go:559-561`).
+  `POST /api/build/trigger` (`main.go:448-471`, `main.go:561-563`).
 - Optionally poll and `git pull` the frontend template
   (`build.template_poll_interval_seconds`, default 0 = off)
   (`main.go:402-445`).
@@ -35,7 +35,7 @@ one template:
   or `tsc -b` + `vite build`) → publish (`main.go:139-234`).
 - Build state is persisted in `state/builds.json` (`internal/state/state.go:1-6`).
 - HTTP surface: `:2704` API, `:2705` maintenance operations
-  (`config.example.yaml:7-9`).
+  (`config.example.yaml:10-12`).
 - Runtime needs `node`, `npm`, and `git` in the image because compilation
   happens at runtime (`Dockerfile:12-18`, commit `d307473`).
 
@@ -55,7 +55,7 @@ one template:
 - `main.go:1-7` — package doc stating the responsibility.
 - `main.go:139-234` — the copy → inject → compile → publish pipeline.
 - `internal/broker/broker.go:1-9` — "only pull from HRPAuth" rule.
-- `config.example.yaml:7-9`, `config.example.yaml:11-16` — ports and upstream config.
+- `config.example.yaml:10-12`, `config.example.yaml:14-24` — ports and upstream config.
 - `Dockerfile:12-18` — runtime image ships node/npm/git (commit `d307473`, 2026-11-03).
 - Commits: `1479a3d` (initial service, 2026-10-09), `6e37c48` (maintenance service), `d307473` (Docker).
 - Contract: HA-Contract `docs/dev/HRPAuth/sdk-package.md` "Design Positioning" and "Data Flow" sections.
