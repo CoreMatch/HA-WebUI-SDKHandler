@@ -42,9 +42,11 @@ hosting (`internal/publish/publish.go::ResolveCurrent`, `main.go::handleRevision
   Linux, but the remove-then-rename sequence is not. The package doc still
   claims "atomic switch of the current pointer" via symlink
   (`internal/publish/publish.go:L1-L9`) — stale comment, recorded as-is.
-- **README overstates atomicity.** `README.md:L3-L5 @ 76c5199` says the service
-  "publishes the resulting static assets atomically" (added in `76c5199`).
-  That is not what the code guarantees.
+- **README overstated atomicity (since fixed).** `README.md:L3-L5 @ 76c5199`
+  said the service "publishes the resulting static assets atomically" (added
+  in `76c5199`). That was never what the code guaranteed; the README wording
+  was corrected in `cb4720c` (2026-11-05) to describe the actual
+  remove-then-rename behavior (`README.md:L3-L6`).
 - **No rollback history.** A broken-but-successful publish cannot be rolled
   back from disk; only the state record remembers the build
   (`internal/state/state.go::BuildRecord`), and only the latest record is kept (see
@@ -55,8 +57,8 @@ hosting (`internal/publish/publish.go::ResolveCurrent`, `main.go::handleRevision
   compose template wires no serving side at all.
 - HA-Contract now describes this behavior accurately (sdk-package.md "Build
   Policy": "between the removal and the rename the artifacts directory is
-  absent"), so there is no contract drift — only the in-repo comments and
-  README are stale.
+  absent"), so there is no contract drift — only the in-repo comments are
+  still stale (the README was fixed in `cb4720c`).
 
 ## Artifact Consumer Investigation (2026-11-04)
 
