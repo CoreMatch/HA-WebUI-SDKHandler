@@ -20,25 +20,25 @@ generated modules and their host consumers (HA-Contract
 Every build performs a **full, non-incremental injection**:
 
 1. The template directory is copied in full into a fresh work directory
-   (`internal/inject/copy.go:31-83`). `node_modules` is deliberately copied
-   too (`internal/inject/copy.go:11-13` — see 0003).
+   (`internal/inject/copy.go::CopyTemplate`). `node_modules` is deliberately copied
+   too (`internal/inject/copy.go::copyExcluded` — see 0003).
 2. Each SDK archive is extracted to
    `work_dir/src/generated/services/<name>/` after removing any previous
-   directory for that name (`internal/inject/inject.go:96-103`), i.e. all SDK
+   directory for that name (`internal/inject/inject.go::Inject`), i.e. all SDK
    packages are re-injected on every build.
 3. Archive extraction rejects path traversal, absolute paths, symlinks, and
-   hardlinks (`internal/inject/extract.go:20-43`, `extract.go:82-83`,
-   `extract.go:110-111`).
+   hardlinks (`internal/inject/extract.go::sanitizeArchivePath`,
+   `internal/inject/extract.go::extractTarGz`, `internal/inject/extract.go::extractZip`).
 4. Host-relative imports inside SDK sources are rewritten so files outside
    the package that live in the host `src/` tree resolve
-   (`internal/inject/rewrite.go:20-35`, commit `21c6891`).
+   (`internal/inject/rewrite.go::RewriteHostImports`, commit `21c6891`).
 5. Each package's `manifest.json` is validated against schema version 1
-   (`internal/inject/manifest.go:117-173`).
+   (`internal/inject/manifest.go::ValidateManifest`).
 6. All `manifest.dependencies` are merged into the work directory's
    `package.json`; template dependencies fill the rest
-   (`internal/inject/inject.go:138-156`).
+   (`internal/inject/inject.go::writePackageJSON`).
 7. Six glue files are (re)generated under `src/generated/`
-   (`internal/inject/inject.go:158-177`):
+   (`internal/inject/generate.go::writeSDKRoutes` and five sibling `writeSDK*` writers):
 
 | Generated file | Host mount point (consumer) |
 |---|---|
@@ -69,17 +69,17 @@ contracts come from `src/types/generated-sdk.ts` in the template repo
 - The handler's local manifest validation is slightly looser than the
   contract's upload-time rule: it accepts a package when at least one of
   `routes`/`profile_cards` is non-empty
-  (`internal/inject/manifest.go:129-131`), while the contract says HRPAuth
+  (`internal/inject/manifest.go::ValidateManifest`), while the contract says HRPAuth
   rejects uploads with empty `routes` regardless of `profile_cards`
   (sdk-package.md, Field Reference for `routes`). The handler never sees such
   packages if HRPAuth enforces its rule; the difference is recorded as-is.
 
 ## Evidence
 
-- `internal/inject/inject.go:61-184` — full injection flow.
-- `internal/inject/generate.go:60-373` — the six writers and file names.
-- `internal/inject/copy.go:11-26` — copy exclusion set (no `node_modules`).
-- `internal/inject/extract.go:20-43` — archive path sanitization.
-- `internal/inject/rewrite.go:20-35` — host import rewriting.
+- `internal/inject/inject.go::Inject` — full injection flow.
+- `internal/inject/generate.go::writeSDKRoutes` (+5 sibling `writeSDK*` writers) — the six writers and file names.
+- `internal/inject/copy.go::copyExcluded` — copy exclusion set (no `node_modules`).
+- `internal/inject/extract.go::sanitizeArchivePath` — archive path sanitization.
+- `internal/inject/rewrite.go::RewriteHostImports` — host import rewriting.
 - Commits: `21c6891` (host import rewriting), `dc0926e` (profile cards), `958961c` (critical operations), `7461931` (empty list handling), `917950e` (flexible menu/dashboard entries).
 - Contract: HA-Contract `docs/dev/HRPAuth/sdk-package.md`, Generated Frontend Contract table.
