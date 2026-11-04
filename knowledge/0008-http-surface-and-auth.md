@@ -54,20 +54,20 @@ misreading:
 Evidence from sibling repos, as of 2026-11-04:
 
 - **Header name** is uniformly `X-Internal-Key`
-  (HRPAuth `registry/heartbeat.go:64`, `controllers/hook_runtime.go:135`;
-  HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23`, `:32`).
+  [xref] (HRPAuth `registry/heartbeat.go:64`, `controllers/hook_runtime.go:135`;
+  [xref] HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23`, `:32`).
 - **Verification pattern**: the receiver compares the header against its
   configured key; empty configured key rejects everything (fail-closed);
   failure returns **401** with code `invalid_credentials` and message
   "invalid internal key" inside the unified envelope
-  (HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23-27`,
-  `controllers/api_response.go:109-128`).
+  [xref] (HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23-27`,
+  [xref] `controllers/api_response.go:109-128`).
 - **Comparison** is a direct string comparison in all existing services; no
   service uses `subtle.ConstantTimeCompare`.
 - **Key generation** in HRPAuth uses `utils.GenerateRandomToken(n)`
   (crypto/rand, hex-encoded): 64 bytes → 128 hex chars for dynamic internal
-  keys (HRPAuth `registry/presence.go:92`), 32 bytes → 64 hex chars for the
-  Manage Token (HRPAuth `controllers/startup_controller.go:226-229`).
+  [xref] keys (HRPAuth `registry/presence.go:92`), 32 bytes → 64 hex chars for the
+  [xref] Manage Token (HRPAuth `controllers/startup_controller.go:226-229`).
 - **Static shared-key precedent**: `manage.token` ← env `MANAGE_TOKEN`
   (HA-Services-Deployer `deploy/config/hrpauth.yaml.tmpl`,
   `deploy/.env.example`); env vars use per-service prefixes
@@ -76,16 +76,16 @@ Evidence from sibling repos, as of 2026-11-04:
   HA-Services-MaintenanceView expose unauthenticated `/healthz`).
 - No rotation for static keys (manual); dynamic keys rotate on every
   `POST /services/auth-key` fetch and are revoked on heartbeat failure
-  (HRPAuth `registry/heartbeat.go:66-70`). No service logs key values; no
+  [xref] (HRPAuth `registry/heartbeat.go:66-70`). No service logs key values; no
   rate limiting exists on internal endpoints anywhere.
 
 ## Decision (implemented)
 
-`internalKeyAuthMiddleware` (`main.go`, added next to `opsAuthMiddleware`)
-protects the main API's business routes:
+`internalKeyAuthMiddleware` (`main.go::internalKeyAuthMiddleware`, added next to
+`opsAuthMiddleware`) protects the main API's business routes:
 
 - Protected: `GET /api/build/status`, `POST /api/build/trigger`,
-  `GET /api/revision` (`main.go:559-563`).
+  `GET /api/revision` (`main.go::internalKeyAuthMiddleware`).
 - **Exempt: `/health`** — liveness probes should not depend on the shared
   secret; matches the org pattern of open health endpoints. (Flagged for the
   author: if `:2704` is firewalled anyway, the exemption is harmless; if a
@@ -104,7 +104,7 @@ Contract of the implemented check:
 | Env var (compose) | `SDKHANDLER_INTERNAL_KEY` |
 | Failure status | `401` for missing, malformed, or wrong key |
 | Failure body | `{"success":false,"code":"invalid_credentials","message":"invalid internal key"}` |
-| Key not configured | **fail-closed** — all protected routes return 401 (org convention per Yggdrasil `internal_controller.go:24` and Manage Token `auth_service.go:202`) |
+| Key not configured | **fail-closed** — all protected routes return 401 (org convention per [xref] Yggdrasil `internal_controller.go:24` and Manage Token `auth_service.go:202`) |
 | Comparison | direct string comparison (org convention) |
 | Logging | rejections are logged with method+path only; the key value is never logged |
 
@@ -139,7 +139,7 @@ correct-key pass-through, and unconfigured fail-closed.
 
 - Verified on 2026-11-04: **HRPAuth contains no code that calls SDKHandler**
   (`config/config.go` `SDKPackagesConfig` is broker storage config only;
-  `controllers/sdk_package_controller.go:22` documents the flow as
+  [xref] `controllers/sdk_package_controller.go:22` documents the flow as
   "SDKHandler pulls from HRPAuth").
 - Author decision 2026-11-05: it stays that way. No HRPAuth caller will be
   built, so there is no HRPAuth-side change to dispatch and no key to keep in
@@ -150,12 +150,12 @@ correct-key pass-through, and unconfigured fail-closed.
 
 ### Endpoint inventory — main API, `server.listen_addr` (default `:2704`)
 
-Registered in `main.go:551-568` on a bare `gin.New()` with only
+Registered in `main.go::main` on a bare `gin.New()` with only
 `gin.Recovery()`.
 
 | Method | Path | Auth (after this change) | Handler / effect |
 |---|---|---|---|
-| GET | `/health` | none (exempt, see above) | `{"status":"ok"}` (`main.go:555-557`) |
+| GET | `/health` | none (exempt, see above) | `{"status":"ok"}` (`main.go:L555-L557`) |
 | GET | `/api/build/status` | `X-Internal-Key` | latest build record (`main.go` handleBuildStatus) |
 | POST | `/api/build/trigger` | `X-Internal-Key` | runs a full build synchronously; 409 when busy |
 | GET | `/api/revision` | `X-Internal-Key` | published revision info |
@@ -172,7 +172,7 @@ Registered in `main.go:551-568` on a bare `gin.New()` with only
 3. `runOnce`: `broker.List()` with ETag — unchanged list skips the build;
    otherwise download all packages → copy template → inject → compile
    (default 20-minute timeout, own context from `context.Background()` in
-   `internal/build/build.go:70`, so **client disconnect does not cancel the
+   `internal/build/build.go::Run`, so **client disconnect does not cancel the
    build**) → publish (remove-then-rename window, see 0004).
 
 ### Maintenance API, `:2705` (unchanged)
@@ -180,7 +180,7 @@ Registered in `main.go:551-568` on a bare `gin.New()` with only
 - `POST /api/maintenance/template/pull`, `GET /api/maintenance/sdk/list`,
   both behind `opsAuthMiddleware` (`main.go`): `Authorization: Bearer
   <token>` verified by calling HRPAuth `GET /services/sdk-packages` with the
-  caller's token (`internal/broker/broker.go:367-388`). Missing/malformed
+  caller's token (`internal/broker/broker.go::VerifyOpsCredential`). Missing/malformed
   header → 401; rejected token → 403; HRPAuth error → 500. One HRPAuth
   round-trip per request (no cache); maintenance auth is down when HRPAuth
   is down.
@@ -188,8 +188,8 @@ Registered in `main.go:551-568` on a bare `gin.New()` with only
 ## Evidence
 
 - Implementation: branch `feat/internal-key-auth` commits (middleware + config field + tests; example/README; this entry).
-- `main.go` — `internalKeyAuthMiddleware` and route wiring (`/api/*` protected, `/health` exempt).
-- `internal/config/config.go` — `HRPAuthConfig.InternalKey` (`yaml:"internal_key"`).
+- `main.go::internalKeyAuthMiddleware` — middleware and route wiring (`/api/*` protected, `/health` exempt).
+- `internal/config/config.go::InternalKey` — `HRPAuthConfig.InternalKey` (`yaml:"internal_key"`).
 - `main_internal_key_test.go` — four middleware cases.
-- `config.example.yaml` — `hrpauth.internal_key` with fail-closed note.
-- Convention sources: HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23-35`, `controllers/api_response.go:109-128`; HRPAuth `registry/presence.go:83-98`, `registry/heartbeat.go:38-70`, `services/auth_service.go:200-203`, `controllers/startup_controller.go:226-229`; HA-Contract `agents.md` Unified Response Format; HA-Services-Deployer `deploy/config/hrpauth.yaml.tmpl` (`manage.token` ← `MANAGE_TOKEN`).
+- `config.example.yaml (field: internal_key)` — with fail-closed note.
+- [xref] Convention sources: HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23-35`, `controllers/api_response.go:109-128`; HRPAuth `registry/presence.go:83-98`, `registry/heartbeat.go:38-70`, `services/auth_service.go:200-203`, `controllers/startup_controller.go:226-229`; HA-Contract `agents.md` Unified Response Format; HA-Services-Deployer `deploy/config/hrpauth.yaml.tmpl` (`manage.token` ← `MANAGE_TOKEN`).
