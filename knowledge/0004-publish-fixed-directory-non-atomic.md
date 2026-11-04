@@ -31,7 +31,7 @@ Record what publishing actually does today:
 ID is not part of the path, there is no versioned history, and `current_link`
 is no longer switched (`internal/publish/publish.go:38-43`). `current_link`
 survives only as the path read by `/api/revision` and the optional static
-hosting (`internal/publish/publish.go:126-164`, `main.go:705-722`).
+hosting (`internal/publish/publish.go:126-164`, `main.go:721-783`).
 
 ## Consequences (known defects)
 
@@ -66,7 +66,7 @@ artifacts, and does publishing to disk have any point if nobody reads it?
 
 - **Intended consumer: an external, operator-managed web server.** Two
   documents state this:
-  - `config.example.yaml:35-37` (this repo): `serve_artifacts` defaults to
+  - `config.example.yaml:43-45` (this repo): `serve_artifacts` defaults to
     false because "当前阶段只提供 API，前端产物由其他 Web 服务器托管"
     (at this stage only the API is provided; the frontend artifacts are
     hosted by another web server).
@@ -126,7 +126,7 @@ artifacts, and does publishing to disk have any point if nobody reads it?
 - `internal/publish/publish.go:38-77` — fixed-dir publish, tmp copy, RemoveAll→Rename.
 - `internal/publish/publish.go:1-9` — stale package doc (still mentions `artifacts/<build-id>/dist` and current-pointer switching).
 - `README.md:3-5` — "publishes ... atomically" claim (commit `76c5199`).
-- `internal/config/config.go:126-127` — code defaults `artifacts_dir`/`current_link` both `./dist`.
+- `internal/config/config.go:130-131` — code defaults `artifacts_dir`/`current_link` both `./dist`.
 - HA-Services-Deployer repo: `deploy/docker-compose.yml:184`, `:234` (`sdkhandler-artifacts` volume, mounted only by the sdkhandler service), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
 - HRPAuth repo `main.go:246-256` — `NoRoute` returns a JSON 404 (no static hosting).
 - HRPAuth-WebUI template repo `README.md` "Build and deploy" — "serve it with any web server and configure an SPA fallback"; `htaccess.example` present.
