@@ -14,6 +14,11 @@ hrpauth:
   client_id: ""             # 必填：OAuth2 Client ID
   client_secret: ""         # 必填：OAuth2 Client Secret
   poll_interval_seconds: 60
+  # Internal Key：主程序（HRPAuth）调用本服务 /api/* 接口时必须携带的请求头
+  # X-Internal-Key 的值。组织统一约定；与 HRPAuth 侧配置保持一致。
+  # 留空 = fail-closed：/api/* 一律返回 401（/health 不受影响）。
+  # compose 部署对应环境变量：SDKHANDLER_INTERNAL_KEY。
+  internal_key: ""
 
 build:
   # 前端模板仓库路径（只读，每次构建全量复制）。例如 HRPAuth-Web 仓库位置：

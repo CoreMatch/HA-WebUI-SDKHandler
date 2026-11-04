@@ -28,11 +28,12 @@ self-hosting and maintenance of this service.
 | [0005](0005-sdk-sourcing-and-upload-chain.md) | SDK sourcing and the upload chain | SDKs arrive via satellite uploads to HRPAuth (e.g. HRPAuth-Yggdrasil-API); this handler only ever pulls from HRPAuth, and never verifies list metadata sha256 against downloaded bytes. |
 | [0006](0006-state-package-untracked-defect.md) | `internal/state` tracking (fixed) and record retention | The missing-package defect was fixed (commit `3214e8d`, verified by clean-clone build/test); the one-record retention policy is recorded as current behavior with impacts. |
 | [0007](0007-configuration-shape.md) | Configuration shape | `config.yaml` at version `"4"` with a migration chain; defaults, the example file, and the compose template disagree on artifact paths. |
-| [0008](0008-http-surface-and-auth.md) | HTTP surface and authentication (full survey) | Full endpoint/auth survey: the main API on `:2704` (including build trigger) is unauthenticated with no rate limit; only `:2705` checks an ops credential via HRPAuth. Hardening options listed, none implemented. |
+| [0008](0008-http-surface-and-auth.md) | HTTP surface, authentication, and the implemented internal-key hardening | `/api/*` on `:2704` now requires the org-standard `X-Internal-Key` (fail-closed when unconfigured; `/health` exempt); `:2705` ops auth unchanged; full survey kept. |
 
 ## Maintenance notes
 
 - Records are written against `main` at commit `c585a7b` (2026-11-04), which
-  includes the `internal/state` tracking fix.
+  includes the `internal/state` tracking fix; the internal-key hardening was
+  added on 2026-11-04 via branch `feat/internal-key-auth` (see 0008).
 - Do not edit these entries to make the service look better than it is; record
   reality and link the evidence.

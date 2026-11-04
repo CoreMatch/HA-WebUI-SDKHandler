@@ -29,7 +29,9 @@ The service listens on `:2704` (API, incl. `/health`, `/api/build/status`,
 
 Copy `config.example.yaml` to `config.yaml` and edit it; the file is read from the
 working directory. Required values: `hrpauth.base_url`, `hrpauth.client_id`,
-`hrpauth.client_secret` (OAuth2 service credentials for HRPAuth).
+`hrpauth.client_secret` (OAuth2 service credentials for HRPAuth), and
+`hrpauth.internal_key` (shared `X-Internal-Key`; while it is empty, all `/api/*`
+endpoints reject requests with 401).
 
 ## Documentation
 
