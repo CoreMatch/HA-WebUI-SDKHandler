@@ -1,163 +1,160 @@
-# 0008 — HTTP Surface and Authentication (Full Survey)
+# 0008 — HTTP Surface, Authentication, and the Implemented Internal-Key Hardening
 
 ## Status
 
-Accepted (read-only survey of the current state, 2026-11-04; the
-unauthenticated main API is a known risk, no code changed)
+Accepted — records the surveyed surface and the internal-key hardening
+**implemented on 2026-11-04** (branch `feat/internal-key-auth`), following
+the organization's existing internal-key convention.
 
 ## Date
 
-2026-11-04
+2026-11-04 (survey and implementation)
 
 ## Context
 
-The service exposes two HTTP listeners with different trust assumptions: the
-main API (`:2704`) and the maintenance API (`:2705`). The author requested a
-full current-state survey of both surfaces before deciding on any changes.
-This entry records that survey. Nothing in it is implemented; it is a
-faithful description plus minimal hardening options.
+The service exposes two HTTP listeners: the main API (`:2704`) and the
+maintenance API (`:2705`). A full survey (below) found the main API entirely
+unauthenticated. The author decided SDKHandler must not be unauthenticated:
+its only intended caller is the HA main program (HRPAuth), and the mechanism
+must be the organization's existing **Internal Key** convention, not a new
+one.
 
-## Decision
+## Organization Convention (verified before implementing)
 
-Record the verified surface.
+Evidence from sibling repos, as of 2026-11-04:
+
+- **Header name** is uniformly `X-Internal-Key`
+  (HRPAuth `registry/heartbeat.go:64`, `controllers/hook_runtime.go:135`;
+  HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23`, `:32`).
+- **Verification pattern**: the receiver compares the header against its
+  configured key; empty configured key rejects everything (fail-closed);
+  failure returns **401** with code `invalid_credentials` and message
+  "invalid internal key" inside the unified envelope
+  (HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23-27`,
+  `controllers/api_response.go:109-128`).
+- **Comparison** is a direct string comparison in all existing services; no
+  service uses `subtle.ConstantTimeCompare`.
+- **Key generation** in HRPAuth uses `utils.GenerateRandomToken(n)`
+  (crypto/rand, hex-encoded): 64 bytes → 128 hex chars for dynamic internal
+  keys (HRPAuth `registry/presence.go:92`), 32 bytes → 64 hex chars for the
+  Manage Token (HRPAuth `controllers/startup_controller.go:226-229`).
+- **Static shared-key precedent**: `manage.token` ← env `MANAGE_TOKEN`
+  (HA-Services-Deployer `deploy/config/hrpauth.yaml.tmpl`,
+  `deploy/.env.example`); env vars use per-service prefixes
+  (`SDKHANDLER_*` for this service).
+- **Health endpoints are exempt elsewhere** (HA-Services-Deployer and
+  HA-Services-MaintenanceView expose unauthenticated `/healthz`).
+- No rotation for static keys (manual); dynamic keys rotate on every
+  `POST /services/auth-key` fetch and are revoked on heartbeat failure
+  (HRPAuth `registry/heartbeat.go:66-70`). No service logs key values; no
+  rate limiting exists on internal endpoints anywhere.
+
+## Decision (implemented)
+
+`internalKeyAuthMiddleware` (`main.go`, added next to `opsAuthMiddleware`)
+protects the main API's business routes:
+
+- Protected: `GET /api/build/status`, `POST /api/build/trigger`,
+  `GET /api/revision` (`main.go:559-563`).
+- **Exempt: `/health`** — liveness probes should not depend on the shared
+  secret; matches the org pattern of open health endpoints. (Flagged for the
+  author: if `:2704` is firewalled anyway, the exemption is harmless; if a
+  stricter posture is wanted, this is a one-line change.)
+- **Exempt: static artifact hosting** (`serve_artifacts: true`, off by
+  default) — those routes serve the built frontend to browsers, which cannot
+  carry an internal key.
+- `:2705` maintenance auth (ops credential via HRPAuth) is **unchanged**.
+
+Contract of the implemented check:
+
+| Item | Value |
+|---|---|
+| Header | `X-Internal-Key` |
+| Config field | `hrpauth.internal_key` (config.yaml) |
+| Env var (compose) | `SDKHANDLER_INTERNAL_KEY` |
+| Failure status | `401` for missing, malformed, or wrong key |
+| Failure body | `{"success":false,"code":"invalid_credentials","message":"invalid internal key"}` |
+| Key not configured | **fail-closed** — all protected routes return 401 (org convention per Yggdrasil `internal_controller.go:24` and Manage Token `auth_service.go:202`) |
+| Comparison | direct string comparison (org convention) |
+| Logging | rejections are logged with method+path only; the key value is never logged |
+
+Tests: `main_internal_key_test.go` covers no-header 401, wrong-key 401,
+correct-key pass-through, and unconfigured fail-closed.
+
+## Consequences
+
+- **Impact on existing keyless callers:** any previous consumer of
+  `/api/build/trigger`, `/api/build/status`, `/api/revision` that does not
+  send the key now gets 401. At implementation time no service calls these
+  endpoints (verified: HRPAuth contains no client for SDKHandler's API; the
+  only real-world callers were manual operator requests), so the blast radius
+  is operator scripts, which must now set the header.
+- **Key consistency** is a deployment duty: the same value must be placed in
+  SDKHandler's `hrpauth.internal_key` and in whatever the HRPAuth side will
+  send (see "HRPAuth-side work" below). In compose this is one `.env` value
+  (`SDKHANDLER_INTERNAL_KEY`).
+- Remaining exposure notes from the survey still apply: no rate limiting
+  (only the global build mutex), builds are not cancelled by client
+  disconnect, compose maps the ports on all host interfaces by default.
+  Loopback binding / firewalling remains the cheapest additional layer.
+
+## HRPAuth-side work (not in this repo; to be dispatched separately)
+
+- As of 2026-11-04, **HRPAuth contains no code that calls SDKHandler**
+  (verified: `config/config.go` `SDKPackagesConfig` is broker storage config
+  only; `controllers/sdk_package_controller.go:22` documents the flow as
+  "SDKHandler pulls from HRPAuth"). The premise "the only caller is the main
+  program" therefore describes the *intended* future caller, not existing
+  code — the author should confirm what HRPAuth is supposed to call
+  (e.g. trigger a build after `POST /services/sdk-packages` upload).
+- That caller must send `X-Internal-Key: <key>` and read `<key>` from a
+  HRPAuth config item kept consistent with SDKHandler's
+  `hrpauth.internal_key`.
+
+## Survey (kept from the original entry)
 
 ### Endpoint inventory — main API, `server.listen_addr` (default `:2704`)
 
 Registered in `main.go:551-567` on a bare `gin.New()` with only
-`gin.Recovery()`. **No authentication, no rate limiting, no origin checks on
-any of them.**
+`gin.Recovery()`.
 
-| Method | Path | Validation | Handler / effect |
+| Method | Path | Auth (after this change) | Handler / effect |
 |---|---|---|---|
-| GET | `/health` | none | returns `{"status":"ok"}` (`main.go:555-557`) |
-| GET | `/api/build/status` | none | latest build record incl. error text and artifact path (`main.go:669-683`) |
-| POST | `/api/build/trigger` | none (only a concurrency lock) | runs a full build synchronously (`main.go:686-693`) |
-| GET | `/api/revision` | none | published revision info (`main.go:696-703`) |
-| GET | `/` | none | only when `serve_artifacts: true` — serves `index.html` of current artifacts (`main.go:565`, `705-712`) |
-| * | NoRoute | none | only when `serve_artifacts: true` — serves static files from the artifacts dir (`main.go:566`, `714-722`) |
+| GET | `/health` | none (exempt, see above) | `{"status":"ok"}` (`main.go:555-557`) |
+| GET | `/api/build/status` | `X-Internal-Key` | latest build record (`main.go` handleBuildStatus) |
+| POST | `/api/build/trigger` | `X-Internal-Key` | runs a full build synchronously; 409 when busy |
+| GET | `/api/revision` | `X-Internal-Key` | published revision info |
+| GET | `/` | none (browser-facing; only when `serve_artifacts: true`) | serves `index.html` of current artifacts |
+| * | NoRoute | none (browser-facing; only when `serve_artifacts: true`) | static files from the artifacts dir |
 
-`serve_artifacts` defaults to `false` (`config.example.yaml:35-37`), so the
-last two rows are off by default.
+### `POST /api/build/trigger` — call chain (unchanged by this work)
 
-### `POST /api/build/trigger` — complete call chain
+1. `handleBuildTrigger` → `triggerBuild(ctx, force=false)`:
+   `buildMu.TryLock()` — busy → 409 (the only throttle).
+2. `preRunCheck` → `ensureTemplateRepo`: if the template directory is
+   empty/missing and a git URL is configured, `git clone` + `npm install`
+   run before any build (note: this also blocks HTTP startup on first run).
+3. `runOnce`: `broker.List()` with ETag — unchanged list skips the build;
+   otherwise download all packages → copy template → inject → compile
+   (default 20-minute timeout, own context from `context.Background()` in
+   `internal/build/build.go:70`, so **client disconnect does not cancel the
+   build**) → publish (remove-then-rename window, see 0004).
 
-1. **Who can trigger:** anyone who can open a TCP connection to `:2704`. No
-   credential, header, or source address is checked (`main.go:686-693`).
-2. `handleBuildTrigger` → `triggerBuild(ctx, force=false)`
-   (`main.go:475-489`):
-   - `buildMu.TryLock()` — if a build is already running, returns "busy" and
-     the handler answers **409** (`main.go:476-478`, `686-689`). This is the
-     only throttle in the whole chain: a single global mutex, no per-client
-     or per-time-window rate limit.
-3. `preRunCheck` (`main.go:236-244`) → `ensureTemplateRepo`
-   (`main.go:247-284`): if the template directory is empty/missing and
-   `build.template_git_url` is set, it runs `git clone` **plus
-   `npm install`** in the template directory before any build starts.
-4. `runOnce(force=false)` (`main.go:84-136`):
-   - `broker.List()` against HRPAuth with ETag; if the SDK list is unchanged
-     the request ends with "no change" (this makes repeated spam cheap **only
-     while the list is unchanged**);
-   - otherwise downloads every SDK package, records a `building` state, then
-     `execute` (`main.go:139-234`): copy template → inject → compile →
-     publish.
-5. Compilation (`internal/build/build.go:62-127`) runs with its **own**
-   timeout context created from `context.Background()`
-   (`internal/build/build.go:70`), default 20 minutes
-   (`internal/build/build.go:59`, `internal/config/config.go:205-207`).
-   Consequence: **an HTTP client that disconnects does not cancel the
-   build** — the request context is not propagated into the build steps.
-6. Publish removes and replaces the artifacts directory (see 0004), so a
-   triggered build also produces the non-atomic serving window.
+### Maintenance API, `:2705` (unchanged)
 
-Summary of limits: no authentication, no rate limit, no payload (the POST
-body is ignored), one global build-at-a-time lock, 20-minute default build
-timeout.
-
-### Maintenance API, `server.maintenance_addr` (default `:2705`) — ops-checked
-
-Routes (`main.go:575-584`), both behind `opsAuthMiddleware`
-(`main.go:576-577`, applied to the whole router):
-
-| Method | Path | Effect |
-|---|---|---|
-| POST | `/api/maintenance/template/pull` | `git checkout .` + `git pull` on the template; on change triggers a forced build in a background goroutine (`main.go:645-666`, `326-331`) |
-| GET | `/api/maintenance/sdk/list` | detailed SDK package list (`main.go:725-736`) |
-
-**Authentication mechanics** (`opsAuthMiddleware`, `main.go:613-642`):
-
-- Fields checked: the `Authorization` header must be exactly two tokens with
-  scheme `bearer` (case-insensitive) — `Bearer <token>`; nothing else in the
-  request is validated.
-- Failure behavior:
-  - header missing → **401** `Authorization header required`;
-  - malformed (not `Bearer <token>`) → **401** `Invalid Authorization
-    format`;
-  - HRPAuth verification errors (unreachable / unexpected status) → **500**
-    `Failed to verify credential` (also logged);
-  - token rejected by HRPAuth (401/403 there) → **403** `Insufficient auth
-    level`.
-- Credential source and check: the token is verified by
-  `VerifyOpsCredential` (`internal/broker/broker.go:367-388`), which calls
-  HRPAuth `GET /services/sdk-packages` **with the caller's token**; a 200
-  means the token has ops (level 2) rights on that endpoint. So any
-  HRPAuth-issued token authorized for the SDK-package list passes; there is
-  no separate credential store, no token cache (one HRPAuth round-trip per
-  maintenance request), and maintenance auth is unavailable whenever HRPAuth
-  is down (500).
-
-## Consequences (exposure analysis, recorded as-is)
-
-- **`:2704` on a reachable network:** anyone reaching the port can
-  - spam `POST /api/build/trigger` to occupy the build slot (CPU/disk/node
-    work up to 20 minutes per build; further triggers get 409 but the slot
-    stays occupied) — a cheap resource-exhaustion vector;
-  - repeatedly force the remove-then-rename publish window (0004) on the
-    served frontend;
-  - read `/api/build/status` and `/api/revision`, which disclose SDK names,
-    error strings (may contain filesystem paths), and artifact locations.
-  The trigger cannot inject attacker-controlled SDK content (sources come
-  only from HRPAuth under the service's own credentials), so the risk is
-  DoS/disclosure, not content tampering.
-- **`:2705` on a reachable network:** protected, but only by HRPAuth's
-  authorization of one endpoint; compromise or over-grant of any ops token
-  grants template-pull (which discards local template edits and can trigger
-  forced builds).
-- **Compose exposure:** the platform compose template publishes both ports
-  on the host without loopback binding
-  (HA-Services-Deployer `deploy/docker-compose.yml:168-169`:
-  `"${SDKHANDLER_PORT:-2704}:2704"`, `"${SDKHANDLER_MAINTENANCE_PORT:-2705}:2705"`),
-  so a default `docker compose up` exposes both on all host interfaces.
-
-### Minimal hardening options (not implemented; each with its price)
-
-1. **Bind to loopback / firewall the ports** (compose
-   `127.0.0.1:2704:2704` etc., or host firewall). Price: zero code change;
-   remote operators lose direct access (need SSH tunnel or a proxy); does
-   not help if the trigger caller legitimately lives on another host.
-2. **Reuse the existing ops check on sensitive main routes** — apply
-   `opsAuthMiddleware` to `/api/build/trigger` (and optionally
-   `/api/build/status`, `/api/revision`), keep `/health` open. Price: small
-   code change; every trigger needs an ops token; one extra HRPAuth
-   round-trip per request (no caching today); trigger becomes unavailable
-   when HRPAuth is down.
-3. **Shared static secret** (config item, checked as a header on the
-   trigger endpoint). Price: small code change; no per-caller identity,
-   manual rotation, another secret to protect in config/backups.
-4. **Reverse proxy with authentication** (e.g. nginx/OAuth2 proxy) in front
-   of `:2704`. Price: operational only, no code; one more component to run.
-
-Options can be combined (1 is the cheapest baseline, 2 reuses existing
-machinery). Decision belongs to the author; nothing was changed.
+- `POST /api/maintenance/template/pull`, `GET /api/maintenance/sdk/list`,
+  both behind `opsAuthMiddleware` (`main.go`): `Authorization: Bearer
+  <token>` verified by calling HRPAuth `GET /services/sdk-packages` with the
+  caller's token (`internal/broker/broker.go:367-388`). Missing/malformed
+  header → 401; rejected token → 403; HRPAuth error → 500. One HRPAuth
+  round-trip per request (no cache); maintenance auth is down when HRPAuth
+  is down.
 
 ## Evidence
 
-- `main.go:551-567` — main routes, only `gin.Recovery()` middleware.
-- `main.go:686-693` — trigger handler; `main.go:475-489` — mutex guard.
-- `main.go:236-284` — preRunCheck / ensureTemplateRepo (clone + npm install path).
-- `main.go:84-136`, `139-234` — runOnce / execute pipeline.
-- `internal/build/build.go:59`, `:62-127`, `:70` — build timeout, detached context.
-- `main.go:575-590`, `:613-642` — maintenance server and middleware.
-- `internal/broker/broker.go:367-388` — `VerifyOpsCredential`.
-- `config.example.yaml:35-37` — `serve_artifacts: false` default.
-- HA-Services-Deployer `deploy/docker-compose.yml:168-169` — host port mapping.
-- Commits: `6e37c48` (maintenance service and ops endpoints), `b7e3705` (SDK peek/logging/maintenance API), `de9d527` (discard local changes before pull).
+- Implementation: branch `feat/internal-key-auth` commits (middleware + config field + tests; example/README; this entry).
+- `main.go` — `internalKeyAuthMiddleware` and route wiring (`/api/*` protected, `/health` exempt).
+- `internal/config/config.go` — `HRPAuthConfig.InternalKey` (`yaml:"internal_key"`).
+- `main_internal_key_test.go` — four middleware cases.
+- `config.example.yaml` — `hrpauth.internal_key` with fail-closed note.
+- Convention sources: HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23-35`, `controllers/api_response.go:109-128`; HRPAuth `registry/presence.go:83-98`, `registry/heartbeat.go:38-70`, `services/auth_service.go:200-203`, `controllers/startup_controller.go:226-229`; HA-Contract `agents.md` Unified Response Format; HA-Services-Deployer `deploy/config/hrpauth.yaml.tmpl` (`manage.token` ← `MANAGE_TOKEN`).
