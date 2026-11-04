@@ -556,9 +556,11 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	r.GET("/api/build/status", a.handleBuildStatus)
-	r.POST("/api/build/trigger", a.handleBuildTrigger)
-	r.GET("/api/revision", a.handleRevision)
+	// /health 按组织惯例豁免鉴权（存活探针不依赖共享密钥）。
+	// /api/* 统一要求 Internal Key（X-Internal-Key），见 internalKeyAuthMiddleware。
+	r.GET("/api/build/status", a.internalKeyAuthMiddleware(), a.handleBuildStatus)
+	r.POST("/api/build/trigger", a.internalKeyAuthMiddleware(), a.handleBuildTrigger)
+	r.GET("/api/revision", a.internalKeyAuthMiddleware(), a.handleRevision)
 
 	if cfg.ServeArtifacts {
 		// 静态托管 current_link 产物（默认关闭）。
@@ -637,6 +639,29 @@ func (a *app) opsAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Next()
+	}
+}
+
+// internalKeyAuthMiddleware 校验组织统一的 Internal Key（请求头 X-Internal-Key）。
+//
+// 约定（与 HRPAuth-Yggdrasil-API internal_controller 一致）：
+//   - 密钥未配置或请求头不匹配 → 401，统一响应体
+//     {success:false, code:"invalid_credentials", message:"invalid internal key"}（fail-closed）；
+//   - 密钥比较采用与其他服务一致的直接比较；
+//   - 不记录密钥内容，只记录拒绝事件。
+func (a *app) internalKeyAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		expected := a.cfg.HRPAuth.InternalKey
+		if expected == "" || c.GetHeader("X-Internal-Key") != expected {
+			log.Printf("拒绝缺少或错误 Internal Key 的请求: %s %s", c.Request.Method, c.Request.URL.Path)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"code":    "invalid_credentials",
+				"message": "invalid internal key",
+			})
+			return
+		}
 		c.Next()
 	}
 }

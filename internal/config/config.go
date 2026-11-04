@@ -39,6 +39,10 @@ type HRPAuthConfig struct {
 	ClientID            string `yaml:"client_id"`
 	ClientSecret        string `yaml:"client_secret"`
 	PollIntervalSeconds int    `yaml:"poll_interval_seconds"`
+	// InternalKey 是组织统一的 Internal Key（请求头 X-Internal-Key）。
+	// 主程序（HRPAuth）调用本服务 /api/* 接口时必须携带该密钥；
+	// 留空时按组织惯例 fail-closed：拒绝所有受保护接口（返回 401）。
+	InternalKey string `yaml:"internal_key"`
 }
 
 // BuildConfig 是构建与发布管线配置。
