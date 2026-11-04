@@ -48,18 +48,66 @@ hosting (`internal/publish/publish.go:126-164`, `main.go:705-722`).
   back from disk; only the state record remembers the build
   (`internal/state/state.go:29-39`), and only the latest record is kept (see
   0006).
-- **Artifact consumer is undefined in the platform compose.** The compose
-  template (in HA-Services-Deployer `deploy/docker-compose.yml`) mounts a
-  `sdkhandler-artifacts` volume at `/app/artifacts`, while the rendered
-  config sets `serve_artifacts: false`
-  (HA-Services-Deployer `deploy/config/sdkhandler.yaml.tmpl`). Nothing in the
-  compose template serves the built frontend. *Pending author confirmation:*
-  which web server is supposed to serve `artifacts_dir` in self-hosted
-  deployments — the intent is not documented anywhere verified.
+- **Artifact consumer in the platform compose: none.** See the dedicated
+  investigation section below ("Artifact Consumer Investigation") — the
+  intended consumer is an operator-managed external web server, and the
+  compose template wires no serving side at all.
 - HA-Contract now describes this behavior accurately (sdk-package.md "Build
   Policy": "between the removal and the rename the artifacts directory is
   absent"), so there is no contract drift — only the in-repo comments and
   README are stale.
+
+## Artifact Consumer Investigation (2026-11-04)
+
+Question from the author: who is supposed to consume the published
+artifacts, and does publishing to disk have any point if nobody reads it?
+
+### Findings (verified by ecosystem-wide grep)
+
+- **Intended consumer: an external, operator-managed web server.** Two
+  documents state this:
+  - `config.example.yaml:35-37` (this repo): `serve_artifacts` defaults to
+    false because "当前阶段只提供 API，前端产物由其他 Web 服务器托管"
+    (at this stage only the API is provided; the frontend artifacts are
+    hosted by another web server).
+  - The frontend template repo's README (CoreMatch/HRPAuth-WebUI,
+    `README.md` "Build and deploy"): the build output is "fully static —
+    serve it with any web server and configure an SPA fallback to
+    `index.html`", with `htaccess.example` provided for Apache.
+- **No ecosystem service reads the artifacts.** Grep across all repos under
+  the HA workspace for `sdkhandler-artifacts`, `serve_artifacts`,
+  `artifacts_dir`, `/app/artifacts` matches only: this repo (code/config),
+  the compose template, and wiki pages. In the compose template, the only
+  mount of `sdkhandler-artifacts` is the sdkhandler container itself
+  (HA-Services-Deployer `deploy/docker-compose.yml:184`, volume declaration
+  `:234`). No nginx/caddy/traefik or any other serving service exists in the
+  template. HRPAuth's `NoRoute` is a JSON 404, not static hosting
+  (HRPAuth `main.go:246-256`).
+- **Why `serve_artifacts: false` in compose:** consistent with the design
+  intent above — the handler is a build service; hosting is delegated out.
+  The compose template simply never wires the delegated side.
+- **Does publishing to disk still make sense?** Yes for the assumed
+  self-host shape: the operator's own web server (e.g. the nginx-style
+  hosting implied by the `/www/wwwroot` deploy-root convention used on the
+  author's boxes) serves `artifacts_dir`. In a pure `docker compose`
+  deployment, nothing serves the volume — the compose path is a real gap,
+  not a misunderstanding of this entry.
+
+### Options (author to decide; compose intentionally untouched)
+
+1. **Keep as-is + document:** compose users must add their own static/reverse
+   proxy service mounting `sdkhandler-artifacts` (read-only) with SPA
+   fallback. Cheapest; keeps the template minimal.
+2. **Add a small nginx service to the compose template** mounting the volume
+   read-only with SPA fallback to `index.html`. One new service block; makes
+   compose deployments self-contained.
+3. **Set `serve_artifacts: true`** in the compose config template and use
+   `:2704` as the site entry. Caveats: widens exposure of the unauthenticated
+   main API (see 0008), and the built-in static handler has **no SPA
+   fallback** (`main.go:714-722` serves exact files only; deep links would
+   404), so this needs code work too.
+4. **Drop the volume** from the compose template if composed deployments are
+   not expected to serve the frontend at all.
 
 ## Evidence
 
@@ -68,5 +116,8 @@ hosting (`internal/publish/publish.go:126-164`, `main.go:705-722`).
 - `internal/publish/publish.go:1-9` — stale package doc (still mentions `artifacts/<build-id>/dist` and current-pointer switching).
 - `README.md:3-5` — "publishes ... atomically" claim (commit `76c5199`).
 - `internal/config/config.go:126-127` — code defaults `artifacts_dir`/`current_link` both `./dist`.
-- HA-Services-Deployer repo: `deploy/docker-compose.yml` (`sdkhandler-artifacts` volume), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
+- HA-Services-Deployer repo: `deploy/docker-compose.yml:184`, `:234` (`sdkhandler-artifacts` volume, mounted only by the sdkhandler service), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
+- HRPAuth repo `main.go:246-256` — `NoRoute` returns a JSON 404 (no static hosting).
+- HRPAuth-WebUI template repo `README.md` "Build and deploy" — "serve it with any web server and configure an SPA fallback"; `htaccess.example` present.
+- SamuelWiki `docs/projects/ha-webui-sdkhandler/index.md` — describes `serve_artifacts` as "off by default" (note: that page predates the publish rewrite and still describes the old atomic-symlink behavior; treat as stale).
 - Contract: HA-Contract `docs/dev/HRPAuth/sdk-package.md` Build Policy (aligned in HA-Contract commit `4baf9a7`).
