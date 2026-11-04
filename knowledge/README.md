@@ -35,5 +35,7 @@ self-hosting and maintenance of this service.
 - Records are written against `main` at commit `c585a7b` (2026-11-04), which
   includes the `internal/state` tracking fix; the internal-key hardening was
   added on 2026-11-04 via branch `feat/internal-key-auth` (see 0008).
+  Author decisions of 2026-11-05 (no HRPAuth caller, `/health` exempt, static
+  key without rotation, no constant-time comparison) are recorded in 0008.
 - Do not edit these entries to make the service look better than it is; record
   reality and link the evidence.
