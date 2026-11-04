@@ -128,6 +128,12 @@ correct-key pass-through, and unconfigured fail-closed.
   (only the global build mutex), builds are not cancelled by client
   disconnect, compose maps the ports on all host interfaces by default.
   Loopback binding / firewalling remains the cheapest additional layer.
+- **Rate limiting / HTTP timeouts are deliberately NOT added** (2026-11-05,
+  recorded only): the only existing limits are the global build mutex (busy
+  → 409) and the build timeout (default 1200s,
+  `internal/config/config.go` `applyDefaults`). The `http.Server` instances
+  set no read/write/idle timeouts. Introducing rate limits or server
+  timeouts requires an author decision on values; none was imposed.
 
 ## HRPAuth-side work (closed — nothing to dispatch)
 
