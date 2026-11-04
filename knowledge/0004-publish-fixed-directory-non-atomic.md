@@ -51,10 +51,13 @@ hosting (`internal/publish/publish.go::ResolveCurrent`, `main.go::handleRevision
   back from disk; only the state record remembers the build
   (`internal/state/state.go::BuildRecord`), and only the latest record is kept (see
   0006).
-- **Artifact consumer in the platform compose: none.** See the dedicated
-  investigation section below ("Artifact Consumer Investigation") — the
-  intended consumer is an operator-managed external web server, and the
-  compose template wires no serving side at all.
+- **Artifact consumer in the platform compose: optional, profile-gated.**
+  See the dedicated investigation section below ("Artifact Consumer
+  Investigation") — the intended consumer is an operator-managed external
+  web server; at the time of the investigation the compose template wired
+  no serving side at all, and on 2026-11-05 it gained an optional nginx
+  consumer behind the `webui` compose profile (off by default;
+  HA-Services-Deployer commit `645a724`).
 - HA-Contract now describes this behavior accurately (sdk-package.md "Build
   Policy": "between the removal and the rename the artifacts directory is
   absent"), so there is no contract drift — only the in-repo comments are
@@ -77,7 +80,8 @@ artifacts, and does publishing to disk have any point if nobody reads it?
     `README.md` "Build and deploy"): the build output is "fully static —
     serve it with any web server and configure an SPA fallback to
     `index.html`", with `htaccess.example` provided for Apache.
-- **No ecosystem service reads the artifacts.** Grep across all repos under
+- **No ecosystem service reads the artifacts** (as of 2026-11-04; partially
+  superseded — see the 2026-11-05 update below). Grep across all repos under
   the HA workspace for `sdkhandler-artifacts`, `serve_artifacts`,
   `artifacts_dir`, `/app/artifacts` matches only: this repo (code/config),
   the compose template, and wiki pages. In the compose template, the only
@@ -88,15 +92,32 @@ artifacts, and does publishing to disk have any point if nobody reads it?
   hosting [xref] (HRPAuth `main.go:246-256`).
 - **Why `serve_artifacts: false` in compose:** consistent with the design
   intent above — the handler is a build service; hosting is delegated out.
-  The compose template simply never wires the delegated side.
+  The compose template did not wire the delegated side until 2026-11-05
+  (optional `ha-webui-nginx`, compose profile `webui`, off by default).
 - **Does publishing to disk still make sense?** Yes for the assumed
   self-host shape: the operator's own web server (e.g. the nginx-style
   hosting implied by the `/www/wwwroot` deploy-root convention used on the
   author's boxes) serves `artifacts_dir`. In a pure `docker compose`
-  deployment, nothing serves the volume — the compose path is a real gap,
-  not a misunderstanding of this entry.
+  deployment without the optional `webui` profile, nothing serves the
+  volume — the compose path is a real gap, not a misunderstanding of this
+  entry.
+
+### Update (2026-11-05): the compose template gained a consumer
+
+The 2026-11-04 findings above are superseded in one point:
+HA-Services-Deployer commit `645a724` added `ha-webui-nginx`, an nginx
+service gated behind the `webui` compose profile (off by default). It
+mounts `sdkhandler-artifacts` read-only and serves it with SPA fallback
+to `index.html`
+[xref] (HA-Services-Deployer `deploy/docker-compose.yml:317-329`,
+`deploy/nginx-sdkhandler-artifacts.conf`). With the profile disabled —
+the default compose deployment — the volume still has no serving side.
 
 ### Options (author to decide; compose intentionally untouched)
+
+**Update (2026-11-05):** option 2 was implemented in HA-Services-Deployer
+commit `645a724` as `ha-webui-nginx`, gated behind the `webui` profile
+(off by default); see the update section above.
 
 1. **Keep as-is + document:** compose users must add their own static/reverse
    proxy service mounting `sdkhandler-artifacts` (read-only) with SPA
