@@ -13,9 +13,11 @@ self-hosting and maintenance of this service.
 - When an entry here conflicts with HA-Contract, **fix the entry, not the
   contract**.
 - Entries describe the verified current state at the time of writing. Every
-  claim carries evidence (`file:line` and/or commit hash). Claims that could
-  not be verified are marked `not verified`. Gaps and broken promises are
-  recorded as-is, without sugar-coating.
+  claim carries evidence (a stable anchor — `file::Symbol`,
+  `file (field: key)`, or `file:Lx-Ly [@ commit]` — and/or commit hash;
+  cross-repo citations are marked `[xref]`). Claims that could not be
+  verified are marked `not verified`. Gaps and broken promises are recorded
+  as-is, without sugar-coating.
 
 ## Entries
 
