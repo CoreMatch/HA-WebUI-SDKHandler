@@ -150,7 +150,7 @@ correct-key pass-through, and unconfigured fail-closed.
 
 ### Endpoint inventory — main API, `server.listen_addr` (default `:2704`)
 
-Registered in `main.go:551-567` on a bare `gin.New()` with only
+Registered in `main.go:551-568` on a bare `gin.New()` with only
 `gin.Recovery()`.
 
 | Method | Path | Auth (after this change) | Handler / effect |
