@@ -2,7 +2,8 @@
 
 Build service that polls HRPAuth for SDK source packages, injects them into the
 HRPAuth-WebUI frontend template, compiles the aggregated frontend, and publishes
-the resulting static assets atomically.
+the resulting static assets to a fixed artifacts directory (remove-then-rename
+replacement; see `knowledge/0004` for the known serving gap).
 
 ## Build & Run
 

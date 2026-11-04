@@ -102,12 +102,23 @@ artifacts, and does publishing to disk have any point if nobody reads it?
    read-only with SPA fallback to `index.html`. One new service block; makes
    compose deployments self-contained.
 3. **Set `serve_artifacts: true`** in the compose config template and use
-   `:2704` as the site entry. Caveats: widens exposure of the unauthenticated
-   main API (see 0008), and the built-in static handler has **no SPA
-   fallback** (`main.go:714-722` serves exact files only; deep links would
-   404), so this needs code work too.
+   `:2704` as the site entry. The former blocker — the built-in static
+   handler had **no SPA fallback** — was fixed on 2026-11-05 (see below).
+   Remaining caveat: it widens exposure of the API listener (see 0008), so
+   the port should be firewalled or proxied.
 4. **Drop the volume** from the compose template if composed deployments are
    not expected to serve the frontend at all.
+
+### Static hosting fix (2026-11-05)
+
+- `handleStatic` now serves real files when present and falls back to
+  `index.html` for missing non-`/api` paths (SPA routing); unknown `/api/*`
+  paths keep a JSON 404, and out-of-bounds paths are rejected
+  (`main.go`, `handleStatic`; tests in `main_static_test.go`).
+- Implementation note: the previous handler read `c.Param("filepath")`,
+  which is always empty in a gin `NoRoute` handler, so before this fix the
+  static hosting never served any file other than `/` — the gap was larger
+  than "no SPA fallback". Recorded for accuracy.
 
 ## Evidence
 
@@ -119,5 +130,5 @@ artifacts, and does publishing to disk have any point if nobody reads it?
 - HA-Services-Deployer repo: `deploy/docker-compose.yml:184`, `:234` (`sdkhandler-artifacts` volume, mounted only by the sdkhandler service), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
 - HRPAuth repo `main.go:246-256` — `NoRoute` returns a JSON 404 (no static hosting).
 - HRPAuth-WebUI template repo `README.md` "Build and deploy" — "serve it with any web server and configure an SPA fallback"; `htaccess.example` present.
-- SamuelWiki `docs/projects/ha-webui-sdkhandler/index.md` — describes `serve_artifacts` as "off by default" (note: that page predates the publish rewrite and still describes the old atomic-symlink behavior; treat as stale).
+- SamuelWiki `docs/projects/ha-webui-sdkhandler/index.md` — describes `serve_artifacts` as "off by default" (note: that page predates the publish rewrite and still describes the old atomic-symlink behavior; treat as stale). **Staleness handed off to the Wiki maintenance task (2026-11-05); do not fix the Wiki from this repo.**
 - Contract: HA-Contract `docs/dev/HRPAuth/sdk-package.md` Build Policy (aligned in HA-Contract commit `4baf9a7`).

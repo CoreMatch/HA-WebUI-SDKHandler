@@ -733,17 +733,52 @@ func (a *app) handleStaticIndex(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "无已发布产物"})
 		return
 	}
-	c.File(filepath.Join(cur, "index.html"))
+	index := filepath.Join(cur, "index.html")
+	if _, err := os.Stat(index); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "无已发布产物"})
+		return
+	}
+	c.File(index)
 }
 
+// handleStatic 托管已发布产物：命中真实文件则直接返回；未命中的非 /api
+// 路径回落到 index.html（SPA 前端路由）；未知 /api 路径保持 JSON 404。
+// 注意：NoRoute 处理器没有路由参数，路径取自 c.Request.URL.Path。
 func (a *app) handleStatic(c *gin.Context) {
 	cur, err := publish.ResolveCurrent(a.cfg.Build.CurrentLink)
 	if err != nil || cur == "" {
 		c.JSON(http.StatusNotFound, gin.H{"error": "无已发布产物"})
 		return
 	}
-	file := filepath.Join(cur, c.Param("filepath"))
-	c.File(file)
+
+	reqPath := strings.TrimPrefix(c.Request.URL.Path, "/")
+	cleaned := filepath.Clean(reqPath)
+	// 纵深防御：net/http 已会清理 URL 中的 ..，这里再拒绝越界路径。
+	if filepath.IsAbs(cleaned) || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "非法路径"})
+		return
+	}
+	// 未注册的 /api 路径返回 JSON 404，不回落到前端。
+	if cleaned == "api" || strings.HasPrefix(cleaned, "api"+string(filepath.Separator)) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "route not found"})
+		return
+	}
+
+	if reqPath != "" {
+		file := filepath.Join(cur, cleaned)
+		if info, err := os.Stat(file); err == nil && !info.IsDir() {
+			c.File(file)
+			return
+		}
+	}
+
+	// SPA fallback：静态路径缺失时回落 index.html。
+	index := filepath.Join(cur, "index.html")
+	if _, err := os.Stat(index); err == nil {
+		c.File(index)
+		return
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "无已发布产物"})
 }
 
 // handleMaintenanceSDKList 返回详细的 SDK 列表供运维查询。
