@@ -126,8 +126,10 @@ correct-key pass-through, and unconfigured fail-closed.
   authorized operator tooling/scripts.
 - Remaining exposure notes from the survey still apply: no rate limiting
   (only the global build mutex), builds are not cancelled by client
-  disconnect, compose maps the ports on all host interfaces by default.
-  Loopback binding / firewalling remains the cheapest additional layer.
+  disconnect. The compose template now binds both sdkhandler ports to
+  loopback by default [xref] (HA-Services-Deployer commit `4c554f2`,
+  2026-11-05; `SDKHANDLER_BIND` can widen this). Loopback binding /
+  firewalling remains the cheapest additional layer.
 - **Rate limiting / HTTP timeouts are deliberately NOT added** (2026-11-05,
   recorded only): the only existing limits are the global build mutex (busy
   → 409) and the build timeout (default 1200s,
