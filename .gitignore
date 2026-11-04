@@ -4,6 +4,9 @@ frontend-build/
 dist/
 artifacts/
 state/
+# 例外：只放行源码包 internal/state/（构建历史存储实现），
+# 其余任意层级的 state/ 运行时目录仍被忽略。
+!internal/state/
 current/
 
 # Go 编译产物
