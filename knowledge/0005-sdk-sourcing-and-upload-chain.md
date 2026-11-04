@@ -65,7 +65,7 @@ talk to this handler.
   metadata carries `sha256` per package, but the orchestrator records the
   hash computed locally during download (`main.go:103-108`,
   `internal/broker/broker.go:347-358`); `pkg.SHA256` from the list is only
-  printed for diagnostics (`main.go:744-750`). Integrity therefore relies on
+  printed for diagnostics (`main.go:800-812`). Integrity therefore relies on
   TLS plus trust in HRPAuth; a mismatch between list metadata and delivered
   bytes would go unnoticed. Recorded as a gap, not verified to be intentional
   — *pending author confirmation*.
