@@ -15,9 +15,39 @@ the organization's existing internal-key convention.
 The service exposes two HTTP listeners: the main API (`:2704`) and the
 maintenance API (`:2705`). A full survey (below) found the main API entirely
 unauthenticated. The author decided SDKHandler must not be unauthenticated:
-its only intended caller is the HA main program (HRPAuth), and the mechanism
-must be the organization's existing **Internal Key** convention, not a new
-one.
+its only intended caller was believed to be the HA main program (HRPAuth) —
+this premise was later corrected; see "Author Decisions (2026-11-05)" — and
+the mechanism must be the organization's existing **Internal Key**
+convention, not a new one.
+
+## Author Decisions (2026-11-05)
+
+The author closed the four open items from the implementation report. These
+decisions are final for the current design; do not re-open them without new
+input from the author.
+
+1. **The main program does not call SDKHandler.** No HRPAuth code that
+   triggers or otherwise calls this service will be added, and no further
+   accommodation for a "who is the caller" question is needed. The current
+   state is kept as-is.
+2. **The `/health` exemption stays** exactly as implemented.
+3. **The static shared key stays.** No switch to the dynamic
+   presence/`auth-key` mode.
+4. **No constant-time comparison.** The direct string comparison is kept,
+   and no service in the organization is changed for this reason.
+
+Two facts must be read together with these decisions, to prevent future
+misreading:
+
+- **No service calls the protected `:2704` endpoints today, and the main
+  program does not plan to.** The internal key protects against **local
+  operations/manual scripts and any unauthorized access** — it is *not* an
+  inter-service call credential.
+- **The key is a static shared secret with no rotation mechanism**
+  (following the organization's static precedent, e.g. `manage.token`), and
+  **the comparison is not constant-time**. Both are recorded as **known,
+  deliberate trade-offs accepted by the author — not defects awaiting a
+  fix**.
 
 ## Organization Convention (verified before implementing)
 
@@ -89,27 +119,26 @@ correct-key pass-through, and unconfigured fail-closed.
   endpoints (verified: HRPAuth contains no client for SDKHandler's API; the
   only real-world callers were manual operator requests), so the blast radius
   is operator scripts, which must now set the header.
-- **Key consistency** is a deployment duty: the same value must be placed in
-  SDKHandler's `hrpauth.internal_key` and in whatever the HRPAuth side will
-  send (see "HRPAuth-side work" below). In compose this is one `.env` value
-  (`SDKHANDLER_INTERNAL_KEY`).
+- **Key consistency** is a deployment duty only where a caller exists: the
+  value lives in SDKHandler's `hrpauth.internal_key` (compose: one `.env`
+  value, `SDKHANDLER_INTERNAL_KEY`). Since no service calls these endpoints
+  (see "Author Decisions (2026-11-05)"), today the key is only shared with
+  authorized operator tooling/scripts.
 - Remaining exposure notes from the survey still apply: no rate limiting
   (only the global build mutex), builds are not cancelled by client
   disconnect, compose maps the ports on all host interfaces by default.
   Loopback binding / firewalling remains the cheapest additional layer.
 
-## HRPAuth-side work (not in this repo; to be dispatched separately)
+## HRPAuth-side work (closed — nothing to dispatch)
 
-- As of 2026-11-04, **HRPAuth contains no code that calls SDKHandler**
-  (verified: `config/config.go` `SDKPackagesConfig` is broker storage config
-  only; `controllers/sdk_package_controller.go:22` documents the flow as
-  "SDKHandler pulls from HRPAuth"). The premise "the only caller is the main
-  program" therefore describes the *intended* future caller, not existing
-  code — the author should confirm what HRPAuth is supposed to call
-  (e.g. trigger a build after `POST /services/sdk-packages` upload).
-- That caller must send `X-Internal-Key: <key>` and read `<key>` from a
-  HRPAuth config item kept consistent with SDKHandler's
-  `hrpauth.internal_key`.
+- Verified on 2026-11-04: **HRPAuth contains no code that calls SDKHandler**
+  (`config/config.go` `SDKPackagesConfig` is broker storage config only;
+  `controllers/sdk_package_controller.go:22` documents the flow as
+  "SDKHandler pulls from HRPAuth").
+- Author decision 2026-11-05: it stays that way. No HRPAuth caller will be
+  built, so there is no HRPAuth-side change to dispatch and no key to keep in
+  sync with a main-program config item. This section is kept only as the
+  record of why the protected endpoints currently have no service consumer.
 
 ## Survey (kept from the original entry)
 
