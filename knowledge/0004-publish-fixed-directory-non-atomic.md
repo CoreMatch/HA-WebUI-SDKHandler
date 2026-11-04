@@ -21,17 +21,18 @@ that with direct publishing into one fixed directory.
 Record what publishing actually does today:
 
 1. `dist/` from the build work directory is copied to
-   `<artifacts_dir>.tmp` (`internal/publish/publish.go:50-55`).
+   `<artifacts_dir>.tmp` (`internal/publish/publish.go::Publish`).
 2. The existing artifacts directory is **removed**
-   (`internal/publish/publish.go:59`).
+   (`internal/publish/publish.go::Publish`).
 3. The temp directory is renamed into place
-   (`internal/publish/publish.go:60`).
+   (`internal/publish/publish.go::Publish`).
 
 `Publish` writes to the configured `build.artifacts_dir` directly; the build
 ID is not part of the path, there is no versioned history, and `current_link`
-is no longer switched (`internal/publish/publish.go:38-43`). `current_link`
+is no longer switched (`internal/publish/publish.go::Publish`). `current_link`
 survives only as the path read by `/api/revision` and the optional static
-hosting (`internal/publish/publish.go:126-164`, `main.go:721-783`).
+hosting (`internal/publish/publish.go::ResolveCurrent`, `main.go::handleRevision`,
+`main.go::handleStatic`).
 
 ## Consequences (known defects)
 
@@ -40,13 +41,13 @@ hosting (`internal/publish/publish.go:126-164`, `main.go:721-783`).
   that path returns 404/500 during the window. The rename itself is atomic on
   Linux, but the remove-then-rename sequence is not. The package doc still
   claims "atomic switch of the current pointer" via symlink
-  (`internal/publish/publish.go:1-9`) — stale comment, recorded as-is.
-- **README overstates atomicity.** `README.md:3-5` says the service
+  (`internal/publish/publish.go:L1-L9`) — stale comment, recorded as-is.
+- **README overstates atomicity.** `README.md:L3-L5 @ 76c5199` says the service
   "publishes the resulting static assets atomically" (added in `76c5199`).
   That is not what the code guarantees.
 - **No rollback history.** A broken-but-successful publish cannot be rolled
   back from disk; only the state record remembers the build
-  (`internal/state/state.go:29-39`), and only the latest record is kept (see
+  (`internal/state/state.go::BuildRecord`), and only the latest record is kept (see
   0006).
 - **Artifact consumer in the platform compose: none.** See the dedicated
   investigation section below ("Artifact Consumer Investigation") — the
@@ -66,7 +67,7 @@ artifacts, and does publishing to disk have any point if nobody reads it?
 
 - **Intended consumer: an external, operator-managed web server.** Two
   documents state this:
-  - `config.example.yaml:43-45` (this repo): `serve_artifacts` defaults to
+  - `config.example.yaml (field: serve_artifacts)` (this repo): `serve_artifacts` defaults to
     false because "当前阶段只提供 API，前端产物由其他 Web 服务器托管"
     (at this stage only the API is provided; the frontend artifacts are
     hosted by another web server).
@@ -79,10 +80,10 @@ artifacts, and does publishing to disk have any point if nobody reads it?
   `artifacts_dir`, `/app/artifacts` matches only: this repo (code/config),
   the compose template, and wiki pages. In the compose template, the only
   mount of `sdkhandler-artifacts` is the sdkhandler container itself
-  (HA-Services-Deployer `deploy/docker-compose.yml:184`, volume declaration
-  `:234`). No nginx/caddy/traefik or any other serving service exists in the
-  template. HRPAuth's `NoRoute` is a JSON 404, not static hosting
-  (HRPAuth `main.go:246-256`).
+  [xref] (HA-Services-Deployer `deploy/docker-compose.yml:184`, volume
+  declaration `:234`). No nginx/caddy/traefik or any other serving service
+  exists in the template. HRPAuth's `NoRoute` is a JSON 404, not static
+  hosting [xref] (HRPAuth `main.go:246-256`).
 - **Why `serve_artifacts: false` in compose:** consistent with the design
   intent above — the handler is a build service; hosting is delegated out.
   The compose template simply never wires the delegated side.
@@ -114,7 +115,7 @@ artifacts, and does publishing to disk have any point if nobody reads it?
 - `handleStatic` now serves real files when present and falls back to
   `index.html` for missing non-`/api` paths (SPA routing); unknown `/api/*`
   paths keep a JSON 404, and out-of-bounds paths are rejected
-  (`main.go`, `handleStatic`; tests in `main_static_test.go`).
+  (`main.go::handleStatic`; tests in `main_static_test.go`).
 - Implementation note: the previous handler read `c.Param("filepath")`,
   which is always empty in a gin `NoRoute` handler, so before this fix the
   static hosting never served any file other than `/` — the gap was larger
@@ -123,12 +124,12 @@ artifacts, and does publishing to disk have any point if nobody reads it?
 ## Evidence
 
 - Commit `28c7afb0a876a362c65892e9d6c1844942cd0512` — "Replace versioned artifact storage and current link switching with direct publishes to the configured dist directory".
-- `internal/publish/publish.go:38-77` — fixed-dir publish, tmp copy, RemoveAll→Rename.
-- `internal/publish/publish.go:1-9` — stale package doc (still mentions `artifacts/<build-id>/dist` and current-pointer switching).
-- `README.md:3-5` — "publishes ... atomically" claim (commit `76c5199`).
-- `internal/config/config.go:130-131` — code defaults `artifacts_dir`/`current_link` both `./dist`.
-- HA-Services-Deployer repo: `deploy/docker-compose.yml:184`, `:234` (`sdkhandler-artifacts` volume, mounted only by the sdkhandler service), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
-- HRPAuth repo `main.go:246-256` — `NoRoute` returns a JSON 404 (no static hosting).
+- `internal/publish/publish.go::Publish` — fixed-dir publish, tmp copy, RemoveAll→Rename.
+- `internal/publish/publish.go:L1-L9` — stale package doc (still mentions `artifacts/<build-id>/dist` and current-pointer switching).
+- `README.md:L3-L5 @ 76c5199` — "publishes ... atomically" claim (commit `76c5199`).
+- `internal/config/config.go::CreateDefault` — code defaults `artifacts_dir`/`current_link` both `./dist`.
+- [xref] HA-Services-Deployer repo: `deploy/docker-compose.yml:184`, `:234` (`sdkhandler-artifacts` volume, mounted only by the sdkhandler service), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
+- [xref] HRPAuth repo `main.go:246-256` — `NoRoute` returns a JSON 404 (no static hosting).
 - HRPAuth-WebUI template repo `README.md` "Build and deploy" — "serve it with any web server and configure an SPA fallback"; `htaccess.example` present.
 - SamuelWiki `docs/projects/ha-webui-sdkhandler/index.md` — describes `serve_artifacts` as "off by default" (note: that page predates the publish rewrite and still describes the old atomic-symlink behavior; treat as stale). **Staleness handed off to the Wiki maintenance task (2026-11-05); do not fix the Wiki from this repo.**
 - Contract: HA-Contract `docs/dev/HRPAuth/sdk-package.md` Build Policy (aligned in HA-Contract commit `4baf9a7`).
