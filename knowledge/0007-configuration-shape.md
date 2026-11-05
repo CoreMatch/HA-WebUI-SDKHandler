@@ -10,10 +10,9 @@ Accepted (records current state)
 
 ## Context
 
-The service reads a YAML config file. Over several revisions the config
-gained versioning and migrations, and three sources of "default values"
-diverged (code defaults, the example file, and the platform compose
-template).
+The service reads a YAML config file. The config is versioned with a
+migration chain, and three sources of "default values" diverged (code
+defaults, the example file, and the platform compose template).
 
 ## Decision
 
@@ -50,13 +49,12 @@ Record the verified shape:
 - **Example file vs code defaults drift.** `config.example.yaml` ships
   `artifacts_dir: ./artifacts`, `current_link: ./current`
   (`config.example.yaml (field: artifacts_dir)`, `config.example.yaml (field: current_link)`), while `CreateDefault` uses
-  `./dist`/`./dist`. (The example's missing `version` field was fixed on
-  2026-11-05: it now ships `version: "4"`, so copying it no longer triggers
-  the migration chain.)
+  `./dist`/`./dist`. (The example ships `version: "4"`, so copying it does
+  not trigger the migration chain.)
 - **Compose template drift.** The platform compose template
   (HA-Services-Deployer `deploy/config/sdkhandler.yaml.tmpl`) also uses
-  `./artifacts`/`./current` (its missing `version` field was likewise fixed
-  to `"4"` on 2026-11-05). The Dockerfile pre-creates
+  `./artifacts`/`./current` (it likewise ships `version: "4"`). The
+  Dockerfile pre-creates
   `/app/artifacts` and `/app/current` (`Dockerfile:L17`), consistent with the
   compose template but not with the code defaults.
 - `current_link` is vestigial for publishing (see 0004) but still part of the

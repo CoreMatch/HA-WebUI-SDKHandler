@@ -29,8 +29,8 @@ Record what publishing actually does today:
 
 `Publish` writes to the configured `build.artifacts_dir` directly; the build
 ID is not part of the path, there is no versioned history, and `current_link`
-is no longer switched (`internal/publish/publish.go::Publish`). `current_link`
-survives only as the path read by `/api/revision` and the optional static
+is not switched (`internal/publish/publish.go::Publish`). `current_link`
+serves only as the path read by `/api/revision` and the optional static
 hosting (`internal/publish/publish.go::ResolveCurrent`, `main.go::handleRevision`,
 `main.go::handleStatic`).
 
@@ -42,33 +42,24 @@ hosting (`internal/publish/publish.go::ResolveCurrent`, `main.go::handleRevision
   Linux, but the remove-then-rename sequence is not. The package doc still
   claims "atomic switch of the current pointer" via symlink
   (`internal/publish/publish.go:L1-L9`) — stale comment, recorded as-is.
-- **README overstated atomicity (since fixed).** `README.md:L3-L5 @ 76c5199`
-  said the service "publishes the resulting static assets atomically" (added
-  in `76c5199`). That was never what the code guaranteed; the README wording
-  was corrected in `cb4720c` (2026-11-05) to describe the actual
-  remove-then-rename behavior (`README.md:L3-L6`).
 - **No rollback history.** A broken-but-successful publish cannot be rolled
   back from disk; only the state record remembers the build
   (`internal/state/state.go::BuildRecord`), and only the latest record is kept (see
   0006).
 - **Artifact consumer in the platform compose: optional, profile-gated.**
-  See the dedicated investigation section below ("Artifact Consumer
-  Investigation") — the intended consumer is an operator-managed external
-  web server; at the time of the investigation the compose template wired
-  no serving side at all, and on 2026-11-05 it gained an optional nginx
-  consumer behind the `webui` compose profile (off by default;
-  HA-Services-Deployer commit `645a724`).
-- HA-Contract now describes this behavior accurately (sdk-package.md "Build
-  Policy": "between the removal and the rename the artifacts directory is
-  absent"), so there is no contract drift — only the in-repo comments are
-  still stale (the README was fixed in `cb4720c`).
+  See "Artifact Consumer" below — the intended consumer is an
+  operator-managed external web server, and the compose template wires an
+  optional nginx consumer (`ha-webui-nginx`) behind the `webui` compose
+  profile (off by default).
+- **No contract drift.** HA-Contract describes this behavior accurately
+  (sdk-package.md "Build Policy": "between the removal and the rename the
+  artifacts directory is absent"), and the README describes the actual
+  remove-then-rename behavior (`README.md:L3-L6`). The only stale description
+  is the in-repo package comment.
 
-## Artifact Consumer Investigation (2026-11-04)
+## Artifact Consumer
 
-Question from the author: who is supposed to consume the published
-artifacts, and does publishing to disk have any point if nobody reads it?
-
-### Findings (verified by ecosystem-wide grep)
+Who consumes the published artifacts:
 
 - **Intended consumer: an external, operator-managed web server.** Two
   documents state this:
@@ -80,79 +71,42 @@ artifacts, and does publishing to disk have any point if nobody reads it?
     `README.md` "Build and deploy"): the build output is "fully static —
     serve it with any web server and configure an SPA fallback to
     `index.html`", with `htaccess.example` provided for Apache.
-- **No ecosystem service reads the artifacts** (as of 2026-11-04; partially
-  superseded — see the 2026-11-05 update below). Grep across all repos under
-  the HA workspace for `sdkhandler-artifacts`, `serve_artifacts`,
-  `artifacts_dir`, `/app/artifacts` matches only: this repo (code/config),
-  the compose template, and wiki pages. In the compose template, the only
-  mount of `sdkhandler-artifacts` is the sdkhandler container itself
-  [xref] (HA-Services-Deployer `deploy/docker-compose.yml:184`, volume
-  declaration `:234`). No nginx/caddy/traefik or any other serving service
-  exists in the template. HRPAuth's `NoRoute` is a JSON 404, not static
-  hosting [xref] (HRPAuth `main.go:246-256`).
-- **Why `serve_artifacts: false` in compose:** consistent with the design
-  intent above — the handler is a build service; hosting is delegated out.
-  The compose template did not wire the delegated side until 2026-11-05
-  (optional `ha-webui-nginx`, compose profile `webui`, off by default).
-- **Does publishing to disk still make sense?** Yes for the assumed
-  self-host shape: the operator's own web server (e.g. the nginx-style
-  hosting implied by the `/www/wwwroot` deploy-root convention used on the
-  author's boxes) serves `artifacts_dir`. In a pure `docker compose`
-  deployment without the optional `webui` profile, nothing serves the
-  volume — the compose path is a real gap, not a misunderstanding of this
-  entry.
+- **The platform compose template wires an optional, profile-gated nginx
+  consumer.** `ha-webui-nginx` is gated behind the `webui` compose profile
+  (off by default); it mounts `sdkhandler-artifacts` read-only and serves it
+  with SPA fallback to `index.html`
+  [xref] (HA-Services-Deployer `deploy/docker-compose.yml:321-333`,
+  `deploy/nginx-sdkhandler-artifacts.conf`). With the profile disabled — the
+  default compose deployment — nothing serves the volume. The compose
+  template sets `serve_artifacts: false`, consistent with the design intent
+  that the handler is a build service and hosting is delegated out.
+- **No other ecosystem service reads the artifacts.** Grep across all repos
+  under the HA workspace for `sdkhandler-artifacts`, `serve_artifacts`,
+  `artifacts_dir`, `/app/artifacts` matches only this repo (code/config),
+  the compose template, and wiki pages. HRPAuth's `NoRoute` is a JSON 404,
+  not static hosting [xref] (HRPAuth `main.go:246-256`).
 
-### Update (2026-11-05): the compose template gained a consumer
+Publishing to disk makes sense for the assumed self-host shape: the
+operator's own web server (e.g. the nginx-style hosting implied by the
+`/www/wwwroot` deploy-root convention used on the author's boxes) serves
+`artifacts_dir`.
 
-The 2026-11-04 findings above are superseded in one point:
-HA-Services-Deployer commit `645a724` added `ha-webui-nginx`, an nginx
-service gated behind the `webui` compose profile (off by default). It
-mounts `sdkhandler-artifacts` read-only and serves it with SPA fallback
-to `index.html`
-[xref] (HA-Services-Deployer `deploy/docker-compose.yml:317-329`,
-`deploy/nginx-sdkhandler-artifacts.conf`). With the profile disabled —
-the default compose deployment — the volume still has no serving side.
+### Built-in static hosting
 
-### Options (author to decide; compose intentionally untouched)
-
-**Update (2026-11-05):** option 2 was implemented in HA-Services-Deployer
-commit `645a724` as `ha-webui-nginx`, gated behind the `webui` profile
-(off by default); see the update section above.
-
-1. **Keep as-is + document:** compose users must add their own static/reverse
-   proxy service mounting `sdkhandler-artifacts` (read-only) with SPA
-   fallback. Cheapest; keeps the template minimal.
-2. **Add a small nginx service to the compose template** mounting the volume
-   read-only with SPA fallback to `index.html`. One new service block; makes
-   compose deployments self-contained.
-3. **Set `serve_artifacts: true`** in the compose config template and use
-   `:2704` as the site entry. The former blocker — the built-in static
-   handler had **no SPA fallback** — was fixed on 2026-11-05 (see below).
-   Remaining caveat: it widens exposure of the API listener (see 0008), so
-   the port should be firewalled or proxied.
-4. **Drop the volume** from the compose template if composed deployments are
-   not expected to serve the frontend at all.
-
-### Static hosting fix (2026-11-05)
-
-- `handleStatic` now serves real files when present and falls back to
-  `index.html` for missing non-`/api` paths (SPA routing); unknown `/api/*`
-  paths keep a JSON 404, and out-of-bounds paths are rejected
-  (`main.go::handleStatic`; tests in `main_static_test.go`).
-- Implementation note: the previous handler read `c.Param("filepath")`,
-  which is always empty in a gin `NoRoute` handler, so before this fix the
-  static hosting never served any file other than `/` — the gap was larger
-  than "no SPA fallback". Recorded for accuracy.
+`handleStatic` serves real files when present and falls back to
+`index.html` for missing non-`/api` paths (SPA routing); unknown `/api/*`
+paths keep a JSON 404, and out-of-bounds paths are rejected
+(`main.go::handleStatic`; tests in `main_static_test.go`).
 
 ## Evidence
 
 - Commit `28c7afb0a876a362c65892e9d6c1844942cd0512` — "Replace versioned artifact storage and current link switching with direct publishes to the configured dist directory".
 - `internal/publish/publish.go::Publish` — fixed-dir publish, tmp copy, RemoveAll→Rename.
 - `internal/publish/publish.go:L1-L9` — stale package doc (still mentions `artifacts/<build-id>/dist` and current-pointer switching).
-- `README.md:L3-L5 @ 76c5199` — "publishes ... atomically" claim (commit `76c5199`).
+- `README.md:L3-L6` — describes the remove-then-rename publish behavior.
 - `internal/config/config.go::CreateDefault` — code defaults `artifacts_dir`/`current_link` both `./dist`.
-- [xref] HA-Services-Deployer repo: `deploy/docker-compose.yml:184`, `:234` (`sdkhandler-artifacts` volume, mounted only by the sdkhandler service), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
+- [xref] HA-Services-Deployer repo: `deploy/docker-compose.yml:321-333` (`ha-webui-nginx`, `webui` profile, read-only mount of `sdkhandler-artifacts`), `deploy/nginx-sdkhandler-artifacts.conf` (SPA fallback), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
 - [xref] HRPAuth repo `main.go:246-256` — `NoRoute` returns a JSON 404 (no static hosting).
 - HRPAuth-WebUI template repo `README.md` "Build and deploy" — "serve it with any web server and configure an SPA fallback"; `htaccess.example` present.
-- SamuelWiki `docs/projects/ha-webui-sdkhandler/index.md` — describes `serve_artifacts` as "off by default" (note: that page predates the publish rewrite and still describes the old atomic-symlink behavior; treat as stale). **Staleness handed off to the Wiki maintenance task (2026-11-05); do not fix the Wiki from this repo.**
-- Contract: HA-Contract `docs/dev/HRPAuth/sdk-package.md` Build Policy (aligned in HA-Contract commit `4baf9a7`).
+- SamuelWiki `docs/projects/ha-webui-sdkhandler/index.md` — describes `serve_artifacts` as "off by default" but still describes the old atomic-symlink publish behavior; treat that page as stale. **Staleness handed off to the Wiki maintenance task; do not fix the Wiki from this repo.**
+- Contract: HA-Contract `docs/dev/HRPAuth/sdk-package.md` Build Policy.
