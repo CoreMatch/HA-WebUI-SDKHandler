@@ -93,7 +93,7 @@ Evidence from sibling repos, as of 2026-11-04:
 - **Exempt: static artifact hosting** (`serve_artifacts: true`, off by
   default) — those routes serve the built frontend to browsers, which cannot
   carry an internal key.
-- `:2705` maintenance auth (ops credential via HRPAuth) is **unchanged**.
+- `:2705` maintenance auth uses the ops credential via HRPAuth.
 
 Contract of the implemented check:
 
@@ -113,12 +113,12 @@ correct-key pass-through, and unconfigured fail-closed.
 
 ## Consequences
 
-- **Impact on existing keyless callers:** any previous consumer of
+- **Impact on keyless callers:** any consumer of
   `/api/build/trigger`, `/api/build/status`, `/api/revision` that does not
-  send the key now gets 401. At implementation time no service calls these
+  send the key gets 401. No service calls these
   endpoints (verified: HRPAuth contains no client for SDKHandler's API; the
-  only real-world callers were manual operator requests), so the blast radius
-  is operator scripts, which must now set the header.
+  only real-world callers are manual operator requests), so the blast radius
+  is operator scripts, which must set the header.
 - **Key consistency** is a deployment duty only where a caller exists: the
   value lives in SDKHandler's `hrpauth.internal_key` (compose: one `.env`
   value, `SDKHANDLER_INTERNAL_KEY`). Since no service calls these endpoints
@@ -126,7 +126,7 @@ correct-key pass-through, and unconfigured fail-closed.
   authorized operator tooling/scripts.
 - Remaining exposure notes from the survey still apply: no rate limiting
   (only the global build mutex), builds are not cancelled by client
-  disconnect. The compose template now binds both sdkhandler ports to
+  disconnect. The compose template binds both sdkhandler ports to
   loopback by default [xref] (HA-Services-Deployer commit `4c554f2`,
   2026-11-05; `SDKHANDLER_BIND` can widen this). Loopback binding /
   firewalling remains the cheapest additional layer.
@@ -148,7 +148,7 @@ correct-key pass-through, and unconfigured fail-closed.
   sync with a main-program config item. This section is kept only as the
   record of why the protected endpoints currently have no service consumer.
 
-## Survey (kept from the original entry)
+## Survey
 
 ### Endpoint inventory — main API, `server.listen_addr` (default `:2704`)
 
@@ -164,7 +164,7 @@ Registered in `main.go::main` on a bare `gin.New()` with only
 | GET | `/` | none (browser-facing; only when `serve_artifacts: true`) | serves `index.html` of current artifacts |
 | * | NoRoute | none (browser-facing; only when `serve_artifacts: true`) | static files from the artifacts dir |
 
-### `POST /api/build/trigger` — call chain (unchanged by this work)
+### `POST /api/build/trigger` — call chain
 
 1. `handleBuildTrigger` → `triggerBuild(ctx, force=false)`:
    `buildMu.TryLock()` — busy → 409 (the only throttle).
@@ -177,7 +177,7 @@ Registered in `main.go::main` on a bare `gin.New()` with only
    `internal/build/build.go::Run`, so **client disconnect does not cancel the
    build**) → publish (remove-then-rename window, see 0004).
 
-### Maintenance API, `:2705` (unchanged)
+### Maintenance API, `:2705`
 
 - `POST /api/maintenance/template/pull`, `GET /api/maintenance/sdk/list`,
   both behind `opsAuthMiddleware` (`main.go`): `Authorization: Bearer

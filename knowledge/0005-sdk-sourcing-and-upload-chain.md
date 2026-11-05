@@ -28,9 +28,8 @@ Record the verified shape of the chain:
   unchanged fingerprint skips the build (`internal/broker/broker.go::List`,
   `internal/broker/broker.go::fingerprint`).
 - Auth: OAuth2 client-credentials against `{base}/oauth/token` with
-  `client_id`/`client_secret` (`internal/broker/broker.go::getOrRefreshToken`). This
-  replaced a static ops token in commit `af4155b` (2026-10-12); the config
-  migration v1→v2 deletes `ops_token`
+  `client_id`/`client_secret` (`internal/broker/broker.go::getOrRefreshToken`).
+  The config migration v1→v2 deletes the legacy `ops_token`
   (`internal/config/migrations.go::ops_token`).
 - Download: `GET {base}/services/sdk-packages/{name}/download`; the archive
   type is sniffed from magic bytes (`internal/broker/broker.go::Download`,
@@ -82,4 +81,4 @@ talk to this handler.
 - `internal/config/migrations.go::ops_token` (ops_token removal).
 - [xref] Cross-repo (HRPAuth-Yggdrasil-API @ `68feb97`): `controllers/sdk_upload.go:130-158`, `clients/core_client.go:164-165`, `clients/core_client.go:205`, `sdk/README.md`.
 - [xref] Contract: HA-Contract `docs/dev/HRPAuth/microservices.md:189-193`; `docs/dev/HRPAuth/sdk-package.md` Design Positioning / Data Flow.
-- Commits: `af4155b` (OAuth2 replacement), `2c65776` (ETag handling), `b7e3705` (peek/logging/maintenance API).
+- Commits: `af4155b` (OAuth2 client-credentials), `2c65776` (ETag handling), `b7e3705` (peek/logging/maintenance API).

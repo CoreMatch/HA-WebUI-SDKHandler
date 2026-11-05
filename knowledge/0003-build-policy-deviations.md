@@ -14,11 +14,9 @@ The original build policy promised a pipeline of `npm install → tsc -b →
 vite build`, with `npm install` defaulting to `--ignore-scripts` and
 per-package `run_scripts: true` declarations lifting that restriction for
 individual SDKs. The package doc of the build module still describes this
-policy (`internal/build/build.go:L1-L8`). HA-Contract has since been updated to
-describe the actual behavior instead (HA-Contract commit `4baf9a7`,
-2026-11-04, "docs: align contracts with the current service implementations";
-see `docs/dev/HRPAuth/sdk-package.md` "Build Policy" and the `run_scripts`
-row of the Field Reference).
+policy (`internal/build/build.go:L1-L8`). HA-Contract describes the actual
+behavior (`docs/dev/HRPAuth/sdk-package.md` "Build Policy" and the
+`run_scripts` row of the Field Reference).
 
 ## Decision
 
@@ -26,8 +24,8 @@ Record the two deviations honestly:
 
 ### 1. Builds do not install dependencies
 
-Commit `dfae95b` (2026-10-12, "feat(template): move npm install to template
-setup") removed the build-time `npm install` step. Today:
+Builds deliberately have no `npm install` step; dependency installation
+belongs to template setup (commit `dfae95b`). Today:
 
 - `npm install` runs only in the **template directory**, once after the
   initial clone and once after each `git pull` that changed the template
@@ -60,8 +58,8 @@ The generated `sdk-manifest.ts` still reports `runScripts` per package
 ## Consequences (known defects)
 
 - The promise "each build installs dependencies with `--ignore-scripts`,
-  honoring `run_scripts: true`" does **not** hold. It has been replaced by
-  "dependencies come preinstalled from the template".
+  honoring `run_scripts: true`" does **not** hold; dependencies instead come
+  preinstalled from the template.
 - SDK authors cannot add new npm dependencies through the manifest alone;
   someone must first add and install them in the HRPAuth-WebUI template.
   There is no in-repo mechanism or documented runbook for that. Gap recorded
@@ -77,4 +75,4 @@ The generated `sdk-manifest.ts` still reports `runScripts` per package
 - `internal/build/build.go::Run` — `Run` has no install step; `RunScripts`/`IgnoreScriptsDefault` appear only as `Options` struct fields.
 - `main.go::npmInstallTemplate` — called from `main.go::ensureTemplateRepo` and `main.go::pullLatestTemplate`.
 - `internal/inject/copy.go::copyExcluded` — comment: node_modules is copied with the template.
-- HA-Contract `docs/dev/HRPAuth/sdk-package.md` — Build Policy ("there is no per-build `npm install`") and Field Reference `run_scripts` row ("the current build pipeline does not read it"), aligned in HA-Contract commit `4baf9a7`.
+- HA-Contract `docs/dev/HRPAuth/sdk-package.md` — Build Policy ("there is no per-build `npm install`") and Field Reference `run_scripts` row ("the current build pipeline does not read it").
