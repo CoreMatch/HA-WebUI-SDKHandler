@@ -4,10 +4,6 @@
 
 Accepted (records current state)
 
-## Date
-
-2026-11-04
-
 ## Context
 
 The handler's core job is to turn N SDK source archives plus the read-only

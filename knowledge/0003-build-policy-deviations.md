@@ -4,10 +4,6 @@
 
 Accepted (records broken promises as-is; deviations are still unfixed at HEAD)
 
-## Date
-
-2026-11-04
-
 ## Context
 
 The original build policy promised a pipeline of `npm install → tsc -b →
