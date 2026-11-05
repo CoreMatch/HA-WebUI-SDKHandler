@@ -12,9 +12,9 @@ self-hosting and maintenance of this service.
   (`/services/sdk-packages` endpoints).
 - When an entry here conflicts with HA-Contract, **fix the entry, not the
   contract**.
-- Entries describe the verified current state at the time of writing. Every
+- Entries describe the project's verified current state. Every
   claim carries evidence (a stable anchor — `file::Symbol`,
-  `file (field: key)`, or `file:Lx-Ly [@ commit]` — and/or commit hash;
+  `file (field: key)`, or `file:Lx-Ly`;
   cross-repo citations are marked `[xref]`). Claims that could not be
   verified are marked `not verified`. Gaps and broken promises are recorded
   as-is, without sugar-coating.
@@ -34,8 +34,7 @@ self-hosting and maintenance of this service.
 
 ## Maintenance notes
 
-- Records are written against `main` at commit `c585a7b` (2026-11-04).
-  Author decisions of 2026-11-05 (no HRPAuth caller, `/health` exempt, static
+- Author decisions of 2026-11-05 (no HRPAuth caller, `/health` exempt, static
   key without rotation, no constant-time comparison) are recorded in 0008.
 - Do not edit these entries to make the service look better than it is; record
   reality and link the evidence.
