@@ -6,10 +6,6 @@ Accepted — records the current `internal/state` tracking and the
 record-retention behavior; retention is current behavior and its impacts, not
 a defect.
 
-## Date
-
-2026-11-04
-
 ## Context
 
 The service persists build records in the `internal/state` package

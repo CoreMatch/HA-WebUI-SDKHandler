@@ -4,10 +4,6 @@
 
 Accepted (records current state; the non-atomic window is a known defect)
 
-## Date
-
-2026-11-04
-
 ## Context
 
 The publish step was originally designed around versioned artifact

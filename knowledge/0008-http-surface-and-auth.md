@@ -6,10 +6,6 @@ Accepted — records the surveyed surface and the internal-key hardening
 **implemented on 2026-11-04** (branch `feat/internal-key-auth`), following
 the organization's existing internal-key convention.
 
-## Date
-
-2026-11-04 (survey and implementation)
-
 ## Context
 
 The service exposes two HTTP listeners: the main API (`:2704`) and the

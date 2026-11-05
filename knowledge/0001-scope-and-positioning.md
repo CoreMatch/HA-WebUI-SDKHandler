@@ -4,10 +4,6 @@
 
 Accepted (records current state)
 
-## Date
-
-2026-11-04
-
 ## Context
 
 HA-WebUI-SDKHandler is a build service, first added in commit `1479a3d`

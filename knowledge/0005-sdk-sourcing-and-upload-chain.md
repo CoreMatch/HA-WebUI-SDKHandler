@@ -4,10 +4,6 @@
 
 Accepted (records current state)
 
-## Date
-
-2026-11-04
-
 ## Context
 
 SDK packages must reach this handler somehow. The contract makes HRPAuth the
