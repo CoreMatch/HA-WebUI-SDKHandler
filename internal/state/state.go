@@ -27,15 +27,15 @@ const (
 
 // BuildRecord 是一次构建的状态记录。
 type BuildRecord struct {
-	BuildID      string            `json:"build_id"`                 // 时间戳 + 短 hash
-	Status       Status            `json:"status"`                   // pending/building/success/failed
-	StartedAt    time.Time         `json:"started_at"`               // 构建开始时间
-	FinishedAt   *time.Time        `json:"finished_at,omitempty"`    // 构建结束时间（成功/失败后设置）
-	SDKVersion   string            `json:"sdk_version,omitempty"`    // 本次构建对应的 SDK 列表摘要指纹
-	SDKList      []string          `json:"sdk_list,omitempty"`       // 参与本次构建的 SDK 名称列表
-	ManifestSums map[string]string `json:"manifest_sums,omitempty"`  // name -> sha256（包内容摘要）
-	ArtifactDir  string            `json:"artifact_dir,omitempty"`   // 成功发布后的产物目录（相对 artifacts 根或绝对路径）
-	Error        string            `json:"error,omitempty"`          // 失败原因摘要
+	BuildID      string            `json:"build_id"`                // 时间戳 + 短 hash
+	Status       Status            `json:"status"`                  // pending/building/success/failed
+	StartedAt    time.Time         `json:"started_at"`              // 构建开始时间
+	FinishedAt   *time.Time        `json:"finished_at,omitempty"`   // 构建结束时间（成功/失败后设置）
+	SDKVersion   string            `json:"sdk_version,omitempty"`   // 本次构建对应的 SDK 列表摘要指纹
+	SDKList      []string          `json:"sdk_list,omitempty"`      // 参与本次构建的 SDK 名称列表
+	ManifestSums map[string]string `json:"manifest_sums,omitempty"` // name -> sha256（包内容摘要）
+	ArtifactDir  string            `json:"artifact_dir,omitempty"`  // 成功发布后的产物目录（相对 artifacts 根或绝对路径）
+	Error        string            `json:"error,omitempty"`         // 失败原因摘要
 }
 
 // Store 线程安全地管理构建历史状态。
