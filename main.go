@@ -61,16 +61,6 @@ func (s *statusHolder) set(rec *state.BuildRecord) {
 	s.latest = rec
 }
 
-func (s *statusHolder) get() *state.BuildRecord {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if s.latest == nil {
-		return nil
-	}
-	cp := *s.latest
-	return &cp
-}
-
 // orchestrator 执行一次完整构建管线：拉包 -> 复制模板 -> 注入 -> 编译 -> 发布。
 type orchestrator struct {
 	cfg                *config.Config

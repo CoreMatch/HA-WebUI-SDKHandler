@@ -358,9 +358,6 @@ func (c *Client) Download(name string) (string, string, error) {
 	return dest, sum, nil
 }
 
-// CacheDir 返回包缓存目录。
-func (c *Client) CacheDir() string { return c.cacheDir }
-
 // VerifyOpsCredential 验证提供的 Token 是否具有运维 (Ops/Level 2) 权限。
 // 它通过尝试调用 HRPAuth 的 /services/sdk-packages 接口来判断，
 // 如果返回 200 则认为具备权限。
