@@ -142,12 +142,3 @@ func (s *Store) LatestByStatus(st Status) *BuildRecord {
 	}
 	return nil
 }
-
-// List 返回全部记录副本（按时间倒序）。
-func (s *Store) List() []BuildRecord {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]BuildRecord, len(s.records))
-	copy(out, s.records)
-	return out
-}
