@@ -60,7 +60,7 @@ func componentIdent(prefix, pkgName, suffix string) string {
 func writeSDKManifest(dir string, sdks []*Sdk) error {
 	var b strings.Builder
 	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
-	b.WriteString("// 类型契约见 src/types/generated-sdk.ts 与 HA-Contract/docs/dev/HRPAuth/sdk-package.md。\n")
+	b.WriteString("// 类型契约见 src/types/generated-sdk.ts 与 HRPAuth/knowledge/0012-sdk-package-contract.md（原 HA-Contract docs/dev/HRPAuth/sdk-package.md）。\n")
 	b.WriteString("import type { SdkManifestEntry } from '../types/generated-sdk';\n\n")
 	b.WriteString("export const sdkManifest: SdkManifestEntry[] = [\n")
 	for _, sdk := range sdks {
