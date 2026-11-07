@@ -51,7 +51,7 @@ Record the verified shape:
   (HA-Services-Deployer `deploy/config/sdkhandler.yaml.tmpl`) also uses
   `./artifacts`/`./current` (it likewise ships `version: "4"`). The
   Dockerfile pre-creates
-  `/app/artifacts` and `/app/current` (`Dockerfile:L17`), consistent with the
+  `/app/artifacts` and `/app/current` (`Dockerfile:L17 fp=1ada6244`), consistent with the
   compose template but not with the code defaults.
 - `current_link` is vestigial for publishing (see 0004) but still part of the
   config surface.
