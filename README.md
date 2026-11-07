@@ -34,6 +34,20 @@ working directory. Required values: `hrpauth.base_url`, `hrpauth.client_id`,
 `hrpauth.internal_key` (shared `X-Internal-Key`; while it is empty, all `/api/*`
 endpoints reject requests with 401).
 
+## Deployment facts
+
+Authoritative deployment facts live in [`deploy-manifest.yaml`](deploy-manifest.yaml)
+at the repo root (consumed by HA-Services-Deployer's orchestrator;
+`manager: aapanel` means the process is panel-managed and the orchestrator
+treats it as read-only):
+
+- Listens on `:2704` (API) and `:2705` (maintenance), loopback-only by
+  deployment default; health probe `GET /health` on `:2704`.
+- Depends on HRPAuth (SDK package polling); no database, no Redis.
+- Config file `config.yaml` (template version 4; `SDKHANDLER_CONFIG`
+  overrides the path).
+- Data dirs: `./state`, `./artifacts`, `./frontend-build`.
+
 ## Documentation
 
 - SDK package format and aggregation pipeline: [HA-Contract — sdk-package.md](https://github.com/CoreMatch/HA-Contract/blob/main/docs/dev/HRPAuth/sdk-package.md)
