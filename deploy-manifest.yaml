@@ -29,6 +29,23 @@ facts:
       timeout_seconds: 5
       interval_seconds: 30
       retries: 3
+  smoke:
+    # 部署后冒烟：真实拉一次构建状态（state/build_id/sdk_list/artifact；
+    # 从未构建时 state=empty 也是正常结果，断言只要求结构在）。
+    # /api/* 统一要求组织统一 Internal Key（X-Internal-Key，fail-closed；
+    # main.go internalKeyAuthMiddleware，值来自配置 hrpauth.internal_key）。
+    # 密钥从 Deployer 凭据文件 smoke_secrets.sdkhandler_internal_key 解析，
+    # 绝不写进本清单；缺失时 preflight 直接阻断并报清楚。
+    - name: build-status
+      method: GET
+      path: /api/build/status
+      headers:
+        X-Internal-Key: ${secret:sdkhandler_internal_key}
+      expect_status: 200
+      timeout_seconds: 10
+      assert:
+        json_field: state
+        contains: sdk_list
   depends_on:
     # hrpauth 段：持客户端凭据轮询 HRPAuth（poll_interval_seconds），
     # compose depends_on hrpauth: service_healthy。
