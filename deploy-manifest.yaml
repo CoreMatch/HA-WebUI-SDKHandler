@@ -1,0 +1,69 @@
+# HA-WebUI-SDKHandler 部署声明（deploy-manifest v1）
+# schema 依据：HA-Services-Deployer internal/manifest/（SchemaVersion=1）
+manifest_version: 1
+kind: service
+project: ha-webui-sdkhandler
+display_name: HA-WebUI-SDKHandler
+group: build
+# 未知：仓库无版本 tag，代码与配置均无服务版本字段。
+service_version: "unknown"
+
+facts:
+  ports:
+    # deploy/config/sdkhandler.yaml.tmpl: server.listen_addr ":2704"、
+    # maintenance_addr ":2705"。compose 宿主侧默认 127.0.0.1 绑定
+    # （SDKHANDLER_BIND，注释：内部构建服务，仅回环）。
+    - name: http
+      port: 2704
+      exposure: loopback
+    - name: maintenance
+      port: 2705
+      exposure: loopback
+  health:
+    # main.go r.GET("/health")（2704 主口；维护口 2705 无健康端点，
+    # 仅 /api/maintenance/* 且带鉴权）。compose healthcheck 同路径。
+    http:
+      port_name: http
+      path: /health
+      expect_status: 200
+      timeout_seconds: 5
+      interval_seconds: 30
+      retries: 3
+  depends_on:
+    # hrpauth 段：持客户端凭据轮询 HRPAuth（poll_interval_seconds），
+    # compose depends_on hrpauth: service_healthy。
+    # 无数据库、无 redis（模板无对应段，状态落 state_dir 文件）。
+    - project: hrpauth
+      kind: required
+  migration:
+    # 无数据库，无迁移机制。
+    mode: none
+  data_dirs:
+    # 模板：state_dir ./state；build.artifacts_dir ./artifacts；
+    # build.work_dir ./frontend-build。（生产对应 /www/wwwroot/sdkh/ 下
+    # state/、dist/、frontend-build/ 等自管目录，见 PROD-FILEREFRESH §5。）
+    - ./state
+    - ./artifacts
+    - ./frontend-build
+  config:
+    # main.go：默认 ./config.yaml（SDKHANDLER_CONFIG 环境变量可覆盖）。
+    # 模板版本 = 模板首行 version: "4"（代码 config.ConfigVersion 同为 "4"）。
+    - path: config.yaml
+      template_version: "4"
+  # 构建产物（前端发布物）在 ./artifacts，但生产 serve_artifacts: false，
+  # 本服务不托管静态站（托管方为可选 nginx），故 static_assets 留空。
+  static_assets: ""
+
+baremetal:
+  process:
+    manager: aapanel
+  install:
+    # PROD-FILEREFRESH-20261107 §1：二进制在位路径 /www/wwwroot/sdkh/sdkhandler
+    root: /www/wwwroot/sdkh
+    binary_name: sdkhandler
+  artifact:
+    source: local_path
+    local_path: /home/lnb/Desktop/HA/HA-WebUI-SDKHandler/build/sdkhandler
+
+container:
+  enabled: false
