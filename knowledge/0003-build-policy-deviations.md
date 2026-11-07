@@ -10,7 +10,7 @@ The original build policy promised a pipeline of `npm install → tsc -b →
 vite build`, with `npm install` defaulting to `--ignore-scripts` and
 per-package `run_scripts: true` declarations lifting that restriction for
 individual SDKs. The package doc of the build module still describes this
-policy (`internal/build/build.go:L1-L8`). HA-Contract describes the actual
+policy (`internal/build/build.go:L1-L8 ~ Package build 编排 npm install → tsc -b → vite bui`). HA-Contract describes the actual
 behavior (`docs/dev/HRPAuth/sdk-package.md` "Build Policy" and the
 `run_scripts` row of the Field Reference).
 
@@ -60,7 +60,7 @@ The generated `sdk-manifest.ts` still reports `runScripts` per package
   someone must first add and install them in the HRPAuth-WebUI template.
   There is no in-repo mechanism or documented runbook for that. Gap recorded
   as-is.
-- `internal/build/build.go:L1-L8` is a stale doc comment describing a pipeline
+- `internal/build/build.go:L1-L8 ~ Package build 编排 npm install → tsc -b → vite bui` is a stale doc comment describing a pipeline
   that no longer exists.
 - `ignore_scripts_default` config still exists and is validated, but only
   affects the template-setup `npm install` (`main.go::npmInstallTemplate`), not builds.
