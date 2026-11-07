@@ -153,7 +153,7 @@ Registered in `main.go::main` on a bare `gin.New()` with only
 
 | Method | Path | Auth (after this change) | Handler / effect |
 |---|---|---|---|
-| GET | `/health` | none (exempt, see above) | `{"status":"ok"}` (`main.go:L555-L557`) |
+| GET | `/health` | none (exempt, see above) | `{"status":"ok"}` (`main.go::main`) |
 | GET | `/api/build/status` | `X-Internal-Key` | latest build record (`main.go` handleBuildStatus) |
 | POST | `/api/build/trigger` | `X-Internal-Key` | runs a full build synchronously; 409 when busy |
 | GET | `/api/revision` | `X-Internal-Key` | published revision info |

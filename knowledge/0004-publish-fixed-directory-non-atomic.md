@@ -37,7 +37,7 @@ hosting (`internal/publish/publish.go::ResolveCurrent`, `main.go::handleRevision
   that path returns 404/500 during the window. The rename itself is atomic on
   Linux, but the remove-then-rename sequence is not. The package doc still
   claims "atomic switch of the current pointer" via symlink
-  (`internal/publish/publish.go:L1-L9`) — stale comment, recorded as-is.
+  (`internal/publish/publish.go:L1-L9 ~ Package publish 负责把构建成功的 dist 产物原子发布到 artifacts/`) — stale comment, recorded as-is.
 - **No rollback history.** A broken-but-successful publish cannot be rolled
   back from disk; only the state record remembers the build
   (`internal/state/state.go::BuildRecord`), and only the latest record is kept (see
@@ -50,7 +50,7 @@ hosting (`internal/publish/publish.go::ResolveCurrent`, `main.go::handleRevision
 - **No contract drift.** HA-Contract describes this behavior accurately
   (sdk-package.md "Build Policy": "between the removal and the rename the
   artifacts directory is absent"), and the README describes the actual
-  remove-then-rename behavior (`README.md:L3-L6`). The only stale description
+  remove-then-rename behavior (`README.md:L3-L6 ~ Build service that polls HRPAuth for SDK source `). The only stale description
   is the in-repo package comment.
 
 ## Artifact Consumer
@@ -80,7 +80,7 @@ Who consumes the published artifacts:
   under the HA workspace for `sdkhandler-artifacts`, `serve_artifacts`,
   `artifacts_dir`, `/app/artifacts` matches only this repo (code/config),
   the compose template, and wiki pages. HRPAuth's `NoRoute` is a JSON 404,
-  not static hosting [xref] (HRPAuth `main.go:246-256`).
+  not static hosting [xref] (HRPAuth `main.go::ensureTemplateRepo`).
 
 Publishing to disk makes sense for the assumed self-host shape: the
 operator's own web server (e.g. the nginx-style hosting implied by the
@@ -98,11 +98,11 @@ paths keep a JSON 404, and out-of-bounds paths are rejected
 
 - Commit `28c7afb0a876a362c65892e9d6c1844942cd0512` — "Replace versioned artifact storage and current link switching with direct publishes to the configured dist directory".
 - `internal/publish/publish.go::Publish` — fixed-dir publish, tmp copy, RemoveAll→Rename.
-- `internal/publish/publish.go:L1-L9` — stale package doc (still mentions `artifacts/<build-id>/dist` and current-pointer switching).
-- `README.md:L3-L6` — describes the remove-then-rename publish behavior.
+- `internal/publish/publish.go:L1-L9 ~ Package publish 负责把构建成功的 dist 产物原子发布到 artifacts/` — stale package doc (still mentions `artifacts/<build-id>/dist` and current-pointer switching).
+- `README.md:L3-L6 ~ Build service that polls HRPAuth for SDK source ` — describes the remove-then-rename publish behavior.
 - `internal/config/config.go::CreateDefault` — code defaults `artifacts_dir`/`current_link` both `./dist`.
 - [xref] HA-Services-Deployer repo: `deploy/docker-compose.yml:321-333` (`ha-webui-nginx`, `webui` profile, read-only mount of `sdkhandler-artifacts`), `deploy/nginx-sdkhandler-artifacts.conf` (SPA fallback), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
-- [xref] HRPAuth repo `main.go:246-256` — `NoRoute` returns a JSON 404 (no static hosting).
+- [xref] HRPAuth repo `main.go::ensureTemplateRepo` — `NoRoute` returns a JSON 404 (no static hosting).
 - HRPAuth-WebUI template repo `README.md` "Build and deploy" — "serve it with any web server and configure an SPA fallback"; `htaccess.example` present.
 - SamuelWiki `docs/projects/ha-webui-sdkhandler/index.md` — describes `serve_artifacts` as "off by default" but still describes the old atomic-symlink publish behavior; treat that page as stale. **Staleness handed off to the Wiki maintenance task; do not fix the Wiki from this repo.**
 - Contract: HA-Contract `docs/dev/HRPAuth/sdk-package.md` Build Policy.
