@@ -189,7 +189,13 @@ func (c *Config) applyDefaults() {
 		c.HRPAuth.PollIntervalSeconds = 60
 	}
 	if c.Build.TemplateDir == "" {
-		c.Build.TemplateDir = "../HRPAuth-WebUI"
+		// 与 CreateDefault 及 config.example.yaml 保持一致（修复提交 ede3a47
+		// 把默认值从 "../HRPAuth-WebUI" 改为 "./HRPAuth-WebUI" 时遗漏了此处）。
+		// 相对路径按配置文件所在目录解析（见 resolveRelativePaths）："./" 使
+		// 模板仓落在应用自身目录树内；"../" 会落到上级目录——容器部署时配置
+		// 在 /app，上级即根目录，非 root 用户不可写（HA-Services-Deployer
+		// compose 的 SDKHANDLER_TEMPLATE_DIR 注释记录了该问题）。
+		c.Build.TemplateDir = "./HRPAuth-WebUI"
 	}
 	if c.Build.TemplateGitURL == "" {
 		c.Build.TemplateGitURL = "https://github.com/CoreMatch/HRPAuth-WebUI.git"
