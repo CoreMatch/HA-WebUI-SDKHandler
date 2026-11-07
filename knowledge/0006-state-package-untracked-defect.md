@@ -26,8 +26,8 @@ Only `internal/state/` is re-included; the negation does not re-include any
 other `state/` path. Verified with `git check-ignore -v`:
 
 - `internal/state/state.go` → not ignored (exit 1);
-- `state/builds.json` → ignored by `.gitignore:6:state/`;
-- `internal/foo/state/x.go` → ignored by `.gitignore:6:state/`.
+- `state/builds.json` → ignored by `.gitignore:6 fp=14188a31:state/`;
+- `internal/foo/state/x.go` → ignored by `.gitignore:6 fp=14188a31:state/`.
 
 `internal/state/state.go` is tracked (`git ls-files internal/state/`), and a
 fresh clone compiles: `go build ./...` → OK; `go test ./...` →
@@ -63,7 +63,7 @@ Operational impacts of the one-record policy:
 
 ## Evidence
 
-- `.gitignore:L6-L9` (pattern + negation).
+- `.gitignore:L6-L9 fp=5d1f7308` (pattern + negation).
 - `git check-ignore -v` outputs as listed in Tracking.
 - Clean-clone build/test/vet pass as listed in Tracking.
 - `internal/state/state.go::Record` — one-record truncation; the doc comment above `Record` describes a different policy.
