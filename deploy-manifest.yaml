@@ -80,7 +80,7 @@ baremetal:
     binary_name: sdkhandler
   artifact:
     source: local_path
-    local_path: /home/lnb/Desktop/HA/HA-WebUI-SDKHandler/build/sdkhandler
+    local_path: build/sdkhandler
 
 container:
   enabled: false
