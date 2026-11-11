@@ -56,14 +56,14 @@ talk to this handler.
 
 ## Consequences (including an honest gap)
 
-- **List sha256 is never verified against downloaded bytes.** The list
-  metadata carries `sha256` per package, but the orchestrator records the
-  hash computed locally during download (`main.go::runOnce`,
-  `internal/broker/broker.go::Download`); `pkg.SHA256` from the list is only
-  printed for diagnostics (`main.go::printSDKList`). Integrity therefore relies on
-  TLS plus trust in HRPAuth; a mismatch between list metadata and delivered
-  bytes would go unnoticed. Recorded as a gap, not verified to be intentional
-  — *pending author confirmation*.
+- **List sha256 is enforced against downloaded bytes (author decision
+  2026-11-12).** `broker.Download(name, expectedSHA256)` now takes the list
+  metadata's `sha256` and hard-fails when it is missing or does not match the
+  hash computed from the delivered bytes (`internal/broker/broker.go::verifySHA256`);
+  the corrupt cache file is removed and the build aborts — the failure is never
+  downgraded to a warning. `main.go::runOnce` passes `pkg.SHA256`. Failure
+  paths are covered by `internal/broker/broker_test.go`. This closes the former
+  gap where integrity relied only on TLS plus trust in HRPAuth.
 - Ops verification for the maintenance port reuses the same endpoint: a token
   is considered "ops" if it can successfully list SDK packages
   (`internal/broker/broker.go::VerifyOpsCredential`).

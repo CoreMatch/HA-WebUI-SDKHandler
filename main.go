@@ -86,11 +86,12 @@ func (o *orchestrator) runOnce(force bool) (bool, error) {
 	}
 
 	// 下载所有包（下载失败视为本次轮询失败，但保留上一版 current）。
+	// Download 会用列表元数据里的 sha256 做强制完整性校验：缺失或不匹配即失败。
 	archives := map[string]string{}
 	hashes := map[string]string{}
 	runScripts := map[string]bool{}
 	for _, pkg := range list.Packages {
-		path, sum, err := o.broker.Download(pkg.Name)
+		path, sum, err := o.broker.Download(pkg.Name, pkg.SHA256)
 		if err != nil {
 			return true, fmt.Errorf("下载 SDK 包 %s 失败: %w", pkg.Name, err)
 		}

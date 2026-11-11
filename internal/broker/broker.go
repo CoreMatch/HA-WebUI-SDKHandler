@@ -311,7 +311,11 @@ func parsePackageList(body []byte) ([]SdkPackageMeta, error) {
 }
 
 // Download 下载指定包的归档到本地缓存，返回归档本地路径与内容摘要。
-func (c *Client) Download(name string) (string, string, error) {
+//
+// expectedSHA256 是列表元数据里登记的包摘要，用于强制完整性校验：缺失或与
+// 实际下载字节的摘要不匹配时一律返回错误（作者决定 2026-11-12，不许降级为
+// 警告），并删除已写入的损坏缓存文件，防止其被下游构建误用。
+func (c *Client) Download(name, expectedSHA256 string) (string, string, error) {
 	reqURL := fmt.Sprintf("%s/services/sdk-packages/%s/download", c.baseURL, url.PathEscape(name))
 	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
@@ -339,7 +343,7 @@ func (c *Client) Download(name string) (string, string, error) {
 		return "", "", fmt.Errorf("识别 SDK 包 %s 归档格式失败: %w", name, err)
 	}
 
-	// 写入缓存目录，带 sha256 摘要校验（若响应头或 meta 提供）。
+	// 写入缓存目录，随后对下载字节做强制 sha256 完整性校验。
 	dest := filepath.Join(c.cacheDir, name+suffix)
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", "", fmt.Errorf("创建缓存目录失败: %w", err)
@@ -355,7 +359,28 @@ func (c *Client) Download(name string) (string, string, error) {
 		return "", "", fmt.Errorf("写入缓存文件失败: %w", err)
 	}
 	sum := hex.EncodeToString(hasher.Sum(nil))
+
+	if err := verifySHA256(name, expectedSHA256, sum); err != nil {
+		// 校验失败：关闭并删除损坏的缓存文件，避免被下游误用。
+		_ = f.Close()
+		_ = os.Remove(dest)
+		return "", "", err
+	}
 	return dest, sum, nil
+}
+
+// verifySHA256 对下载包做强制完整性校验：列表元数据里的 sha256 必须存在，且
+// 与实际下载字节计算出的摘要一致。缺失或不匹配一律返回错误——按作者决定
+// （2026-11-12）不允许降级为警告。比较忽略大小写与首尾空白。
+func verifySHA256(name, expected, actual string) error {
+	expected = strings.TrimSpace(expected)
+	if expected == "" {
+		return fmt.Errorf("SDK 包 %s 列表元数据缺少 sha256，无法校验完整性", name)
+	}
+	if !strings.EqualFold(expected, actual) {
+		return fmt.Errorf("SDK 包 %s sha256 不匹配: 列表=%s 实际=%s", name, expected, actual)
+	}
+	return nil
 }
 
 // VerifyOpsCredential 验证提供的 Token 是否具有运维 (Ops/Level 2) 权限。
