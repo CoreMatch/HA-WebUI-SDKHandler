@@ -92,5 +92,5 @@ container:
   image:
     source: registry
     repo: limeight/ha-webui-sdkhandler
-    tag: "7195a69"
+    tag: "3cf2b0e"
     digest: "sha256:bd4137705d8e62a3718ecd24db6f444880cf9a5973f1cfa62b27484cab5d7f8f"
