@@ -14,9 +14,12 @@ go build -o ./build/sdkhandler
 ./build/sdkhandler
 ```
 
-A multi-stage `Dockerfile` is also provided (`docker build -t ha-webui-sdkhandler .`).
+The image is published on Docker Hub: [`limeight/ha-webui-sdkhandler`](https://hub.docker.com/r/limeight/ha-webui-sdkhandler)
+(`linux/amd64` + `linux/arm64` multi-arch; tag `7195a69` alongside `latest`, effective
+reference pinned by the manifest list digest in `deploy-manifest.yaml`).
 The runtime image needs `node`, `npm`, and `git` because frontend builds happen at
-runtime; these are included in the provided image.
+runtime; these are included in the provided image. The multi-stage `Dockerfile` is kept
+for local builds (`docker build -t ha-webui-sdkhandler .`).
 
 The service listens on `:2704` (API, incl. `/health`, `/api/build/status`,
 `/api/build/trigger`, `/api/revision`) and `:2705` (maintenance operations).
