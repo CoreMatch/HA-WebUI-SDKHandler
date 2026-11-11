@@ -71,7 +71,7 @@ Who consumes the published artifacts:
   consumer.** `ha-webui-nginx` is gated behind the `webui` compose profile
   (off by default); it mounts `sdkhandler-artifacts` read-only and serves it
   with SPA fallback to `index.html`
-  [xref] (HA-Services-Deployer `deploy/docker-compose.yml:321-333`,
+  [xref] (HA-Cupbearer `deploy/docker-compose.yml:321-333`,
   `deploy/nginx-sdkhandler-artifacts.conf`). With the profile disabled — the
   default compose deployment — nothing serves the volume. The compose
   template sets `serve_artifacts: false`, consistent with the design intent
@@ -101,7 +101,7 @@ paths keep a JSON 404, and out-of-bounds paths are rejected
 - `internal/publish/publish.go:L1-L9 fp=0f15f53e ~ Package publish 负责把构建成功的 dist 产物原子发布到 artifacts/` — stale package doc (still mentions `artifacts/<build-id>/dist` and current-pointer switching).
 - `README.md:L3-L6 fp=af56d41c ~ Build service that polls HRPAuth for SDK source ` — describes the remove-then-rename publish behavior.
 - `internal/config/config.go::CreateDefault` — code defaults `artifacts_dir`/`current_link` both `./dist`.
-- [xref] HA-Services-Deployer repo: `deploy/docker-compose.yml:321-333` (`ha-webui-nginx`, `webui` profile, read-only mount of `sdkhandler-artifacts`), `deploy/nginx-sdkhandler-artifacts.conf` (SPA fallback), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
+- [xref] HA-Cupbearer repo: `deploy/docker-compose.yml:321-333` (`ha-webui-nginx`, `webui` profile, read-only mount of `sdkhandler-artifacts`), `deploy/nginx-sdkhandler-artifacts.conf` (SPA fallback), `deploy/config/sdkhandler.yaml.tmpl` (`serve_artifacts: false`).
 - [xref] HRPAuth repo `main.go::ensureTemplateRepo` — `NoRoute` returns a JSON 404 (no static hosting).
 - HRPAuth-WebUI template repo `README.md` "Build and deploy" — "serve it with any web server and configure an SPA fallback"; `htaccess.example` present.
 - SamuelWiki `docs/projects/ha-webui-sdkhandler/index.md` — describes `serve_artifacts` as "off by default" but still describes the old atomic-symlink publish behavior; treat that page as stale. **Staleness handed off to the Wiki maintenance task; do not fix the Wiki from this repo.**

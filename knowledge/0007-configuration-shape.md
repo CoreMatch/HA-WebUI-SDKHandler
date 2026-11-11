@@ -20,7 +20,7 @@ Record the verified shape:
 - Missing file: `Load` writes a default file via `CreateDefault` and then
   **exits with an error asking the operator to edit and restart**
   (`internal/config/config.go::Load`). This differs from the sibling services
-  (HA-Services-Deployer / HA-Services-MaintenanceView), which continue
+  (HA-Cupbearer / HA-Services-MaintenanceView), which continue
   running with defaults.
 - Migration chain (`internal/config/migrations.go::migrations`):
   - `"" → 1`: baseline stamp.
@@ -48,7 +48,7 @@ Record the verified shape:
   `./dist`/`./dist`. (The example ships `version: "4"`, so copying it does
   not trigger the migration chain.)
 - **Compose template drift.** The platform compose template
-  (HA-Services-Deployer `deploy/config/sdkhandler.yaml.tmpl`) also uses
+  (HA-Cupbearer `deploy/config/sdkhandler.yaml.tmpl`) also uses
   `./artifacts`/`./current` (it likewise ships `version: "4"`). The
   Dockerfile pre-creates
   `/app/artifacts` and `/app/current` (`Dockerfile:L17 fp=1ada6244`), consistent with the
@@ -64,5 +64,5 @@ Record the verified shape:
 - `internal/config/config.go::ConfigVersion` (version), `internal/config/config.go::Load` (create-and-exit), `internal/config/config.go::CreateDefault`, `internal/config/config.go::applyDefaults`, `internal/config/config.go::validate` (required fields), `internal/config/config.go::resolveRelativePaths` (path resolution).
 - `internal/config/migrations.go::migrations` — migration chain.
 - `config.example.yaml (field: version)` — example values (`version: "4"`).
-- HA-Services-Deployer repo `deploy/config/sdkhandler.yaml.tmpl` — compose values.
+- HA-Cupbearer repo `deploy/config/sdkhandler.yaml.tmpl` — compose values.
 - Commits: `ef9550f` (config migration and defaults), `39e4e70` (version bump to 4), `af4155b` (OAuth2, migration 1→2), `6fa0acf` (template polling).

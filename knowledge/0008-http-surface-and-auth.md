@@ -65,10 +65,10 @@ Evidence from sibling repos, as of 2026-11-04:
   [xref] keys (HRPAuth `registry/presence.go:92`), 32 bytes → 64 hex chars for the
   [xref] Manage Token (HRPAuth `controllers/startup_controller.go:226-229`).
 - **Static shared-key precedent**: `manage.token` ← env `MANAGE_TOKEN`
-  (HA-Services-Deployer `deploy/config/hrpauth.yaml.tmpl`,
+  (HA-Cupbearer `deploy/config/hrpauth.yaml.tmpl`,
   `deploy/.env.example`); env vars use per-service prefixes
   (`SDKHANDLER_*` for this service).
-- **Health endpoints are exempt elsewhere** (HA-Services-Deployer and
+- **Health endpoints are exempt elsewhere** (HA-Cupbearer and
   HA-Services-MaintenanceView expose unauthenticated `/healthz`).
 - No rotation for static keys (manual); dynamic keys rotate on every
   `POST /services/auth-key` fetch and are revoked on heartbeat failure
@@ -123,7 +123,7 @@ correct-key pass-through, and unconfigured fail-closed.
 - Remaining exposure notes from the survey still apply: no rate limiting
   (only the global build mutex), builds are not cancelled by client
   disconnect. The compose template binds both sdkhandler ports to
-  loopback by default [xref] (HA-Services-Deployer commit `4c554f2`,
+  loopback by default [xref] (HA-Cupbearer commit `4c554f2`,
   2026-11-05; `SDKHANDLER_BIND` can widen this). Loopback binding /
   firewalling remains the cheapest additional layer.
 - **Rate limiting / HTTP timeouts are deliberately NOT added** (2026-11-05,
@@ -190,4 +190,4 @@ Registered in `main.go::main` on a bare `gin.New()` with only
 - `internal/config/config.go::InternalKey` — `HRPAuthConfig.InternalKey` (`yaml:"internal_key"`).
 - `main_internal_key_test.go` — four middleware cases.
 - `config.example.yaml (field: internal_key)` — with fail-closed note.
-- [xref] Convention sources: HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23-35`, `controllers/api_response.go:109-128`; HRPAuth `registry/presence.go:83-98`, `registry/heartbeat.go:38-70`, `services/auth_service.go:200-203`, `controllers/startup_controller.go:226-229`; HA-Contract `agents.md` Unified Response Format; HA-Services-Deployer `deploy/config/hrpauth.yaml.tmpl` (`manage.token` ← `MANAGE_TOKEN`).
+- [xref] Convention sources: HRPAuth-Yggdrasil-API `controllers/internal_controller.go:23-35`, `controllers/api_response.go:109-128`; HRPAuth `registry/presence.go:83-98`, `registry/heartbeat.go:38-70`, `services/auth_service.go:200-203`, `controllers/startup_controller.go:226-229`; HA-Contract `agents.md` Unified Response Format; HA-Cupbearer `deploy/config/hrpauth.yaml.tmpl` (`manage.token` ← `MANAGE_TOKEN`).

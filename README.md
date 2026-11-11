@@ -40,7 +40,7 @@ endpoints reject requests with 401).
 ## Deployment facts
 
 Authoritative deployment facts live in [`deploy-manifest.yaml`](deploy-manifest.yaml)
-at the repo root (consumed by HA-Services-Deployer's orchestrator;
+at the repo root (consumed by HA-Cupbearer's orchestrator;
 `manager: aapanel` means the process is panel-managed and the orchestrator
 treats it as read-only):
 
