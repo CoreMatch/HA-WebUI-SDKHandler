@@ -15,8 +15,9 @@ go build -o ./build/sdkhandler
 ```
 
 The image is published on Docker Hub: [`limeight/ha-webui-sdkhandler`](https://hub.docker.com/r/limeight/ha-webui-sdkhandler)
-(`linux/amd64` + `linux/arm64` multi-arch; tag `7195a69` alongside `latest`, effective
-reference pinned by the manifest list digest in `deploy-manifest.yaml`).
+(`linux/amd64` + `linux/arm64` multi-arch; tag `1.3.0-1557bee` alongside `latest`, manifest-list
+digest `sha256:5a31850590442f5ec7659fa088a7030072bf2cd39e49d89d811805009e055bce`; effective
+reference pinned in `deploy-manifest.yaml`).
 The runtime image needs `node`, `npm`, and `git` because frontend builds happen at
 runtime; these are included in the provided image. The multi-stage `Dockerfile` is kept
 for local builds (`docker build -t ha-webui-sdkhandler .`).
