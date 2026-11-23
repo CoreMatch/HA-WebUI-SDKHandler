@@ -5,8 +5,8 @@ kind: service
 project: ha-webui-sdkhandler
 display_name: HA-WebUI-SDKHandler
 group: build
-# 未知：仓库无版本 tag，代码与配置均无服务版本字段。
-service_version: "unknown"
+# HA-WebUI-SDKHandler 1.3.0 统一生态版本。
+service_version: "1.3.0"
 
 facts:
   ports:

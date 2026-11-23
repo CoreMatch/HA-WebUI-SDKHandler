@@ -7,7 +7,7 @@ replacement; see `knowledge/0004` for the known serving gap).
 
 ## Build & Run
 
-Requires Go 1.25+.
+Requires Go 1.26.10 (see `go.mod`).
 
 ```bash
 go build -o ./build/sdkhandler
