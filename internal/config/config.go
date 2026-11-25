@@ -33,14 +33,14 @@ type ServerConfig struct {
 	MaintenanceAddr string `yaml:"maintenance_addr"`
 }
 
-// HRPAuthConfig 是 HRPAuth 主服务连接配置。
+// HRPAuthConfig 是 Armorial 主服务连接配置。
 type HRPAuthConfig struct {
 	BaseURL             string `yaml:"base_url"`
 	ClientID            string `yaml:"client_id"`
 	ClientSecret        string `yaml:"client_secret"`
 	PollIntervalSeconds int    `yaml:"poll_interval_seconds"`
 	// InternalKey 是组织统一的 Internal Key（请求头 X-Internal-Key）。
-	// 主程序（HRPAuth）调用本服务 /api/* 接口时必须携带该密钥；
+	// 主程序（Armorial）调用本服务 /api/* 接口时必须携带该密钥；
 	// 留空时按组织惯例 fail-closed：拒绝所有受保护接口（返回 401）。
 	InternalKey string `yaml:"internal_key"`
 }

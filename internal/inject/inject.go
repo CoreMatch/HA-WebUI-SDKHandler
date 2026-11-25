@@ -18,7 +18,7 @@ type Sdk struct {
 	Name string
 	// Manifest 是校验通过的包 manifest。
 	Manifest *Manifest
-	// SHA256 是包归档内容的摘要（来自 HRPAuth 元信息或下载后本地计算）。
+	// SHA256 是包归档内容的摘要（来自 Armorial 元信息或下载后本地计算）。
 	SHA256 string
 	// Dir 是解包目录（work_dir/src/generated/services/<name>）。
 	Dir string

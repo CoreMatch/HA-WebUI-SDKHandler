@@ -1,16 +1,16 @@
 <div align="center">
-  <h1>HA-WebUI-SDKHandler</h1>
-  <p><strong>汇集每个 HA 服务，构建同一个 WebUI。</strong></p>
+  <h1>Armorial WebUI SDK Handler</h1>
+  <p><strong>汇集每个 Armorial 服务，构建同一个 WebUI。</strong></p>
   <p><a href="./README.md">English</a></p>
 </div>
 
-HA-WebUI-SDKHandler 将 HRPAuth 托管的 SDK 包构建为供 HRPAuth-Web 使用的单一 WebUI。
+Armorial WebUI SDK Handler 将 Armorial 托管的 SDK 包构建为供现有 HRPAuth-Web 仓库使用的单一 WebUI。
 
 它整合各服务页面，在包指纹变化时重新构建，并完整重新注入整套 SDK。
 
-## 为什么选择 HA-WebUI-SDKHandler
+## 为什么选择 Armorial WebUI SDK Handler
 
-- **聚合生态页面。** 收集由 HRPAuth 托管的 SDK 源码包。
+- **聚合生态页面。** 收集由 Armorial 托管的 SDK 源码包。
 - **变化即重建。** 检测包指纹变化，生成全新的前端产物。
 - **完整重新注入。** 替换整套已注入 SDK，而非叠加局部更新。
 - **默认拒绝。** 共享内部密钥为空时，拒绝所有内部 API 请求。
@@ -19,8 +19,8 @@ HA-WebUI-SDKHandler 将 HRPAuth 托管的 SDK 包构建为供 HRPAuth-Web 使用
 ## 进一步了解
 
 - [Docker 镜像](https://hub.docker.com/r/limeight/ha-webui-sdkhandler) — 已发布的容器镜像
-- [HA Wiki](https://wiki.mcnb.dev/) — 生态文档
-- [HA-Contract](https://github.com/CoreMatch/HA-Contract) — 生态 API 契约
+- [Armorial Wiki](https://wiki.mcnb.dev/) — 生态文档
+- [Armorial API Contracts](https://github.com/CoreMatch/HA-Contract) — 生态 API 契约
 
 ## 发布限制
 

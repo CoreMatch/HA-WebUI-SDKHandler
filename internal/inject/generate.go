@@ -59,7 +59,7 @@ func componentIdent(prefix, pkgName, suffix string) string {
 // 类型来自 src/types/generated-sdk.ts（模板已有，人工维护）。
 func writeSDKManifest(dir string, sdks []*Sdk) error {
 	var b strings.Builder
-	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
+	b.WriteString("// 本文件由 Armorial WebUI SDK Handler 自动生成，请勿手工修改。\n")
 	b.WriteString("// 类型契约见 src/types/generated-sdk.ts 与 HRPAuth/knowledge/0012-sdk-package-contract.md（原 HA-Contract docs/dev/HRPAuth/sdk-package.md）。\n")
 	b.WriteString("import type { SdkManifestEntry } from '../types/generated-sdk';\n\n")
 	b.WriteString("export const sdkManifest: SdkManifestEntry[] = [\n")
@@ -128,7 +128,7 @@ func boolLit(b bool) string {
 // 遵守模板 TS 严格模式：import type、无未使用变量。
 func writeSDKRoutes(dir string, sdks []*Sdk) error {
 	var b strings.Builder
-	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
+	b.WriteString("// 本文件由 Armorial WebUI SDK Handler 自动生成，请勿手工修改。\n")
 	b.WriteString("// 路由采用 React.lazy 按需加载，Suspense 包裹。<Route> 直接使用绝对路径，\n")
 	b.WriteString("// 可挂载在任意层级；sdkRoutes 为 React Router 的 RouteObject 形态。\n")
 
@@ -209,7 +209,7 @@ func writeSDKRoutes(dir string, sdks []*Sdk) error {
 // `export const sdkNavbarItems: SdkNavbarItem[]`（key/label/path）。
 func writeSDKNavbar(dir string, sdks []*Sdk) error {
 	var b strings.Builder
-	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
+	b.WriteString("// 本文件由 Armorial WebUI SDK Handler 自动生成，请勿手工修改。\n")
 	b.WriteString("import type { SdkNavbarItem } from '../types/generated-sdk';\n\n")
 	b.WriteString("export const sdkNavbarItems: SdkNavbarItem[] = [\n")
 	for _, sdk := range sdks {
@@ -235,7 +235,7 @@ func writeSDKNavbar(dir string, sdks []*Sdk) error {
 // element 是懒加载组件实例）。模块引用基于包内 module 路径，惰性求值。
 func writeSDKDashboard(dir string, sdks []*Sdk) error {
 	var b strings.Builder
-	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
+	b.WriteString("// 本文件由 Armorial WebUI SDK Handler 自动生成，请勿手工修改。\n")
 
 	hasDashboard := false
 	for _, sdk := range sdks {
@@ -298,7 +298,7 @@ func writeSDKDashboard(dir string, sdks []*Sdk) error {
 // Critical Operations section.
 func writeSDKCriticalOperations(dir string, sdks []*Sdk) error {
 	var b strings.Builder
-	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
+	b.WriteString("// 本文件由 Armorial WebUI SDK Handler 自动生成，请勿手工修改。\n")
 	b.WriteString("import type { SdkCriticalOperationItem } from '../types/generated-sdk';\n\n")
 	b.WriteString("export const sdkCriticalOperations: SdkCriticalOperationItem[] = [\n")
 	for _, sdk := range sdks {
@@ -319,7 +319,7 @@ func writeSDKCriticalOperations(dir string, sdks []*Sdk) error {
 // loadOrder，供 Profile 页在 priority 相同或缺省时稳定排序。
 func writeSDKProfileCards(dir string, sdks []*Sdk) error {
 	var b strings.Builder
-	b.WriteString("// 本文件由 HA-WebUI-SDKHandler 自动生成，请勿手工修改。\n")
+	b.WriteString("// 本文件由 Armorial WebUI SDK Handler 自动生成，请勿手工修改。\n")
 
 	hasProfileCards := false
 	for _, sdk := range sdks {

@@ -6,11 +6,11 @@ This directory is **the project's own notebook** — ADR-style records kept for
 self-hosting and maintenance of this service.
 
 - It does **not** define external behavior. The normative contracts live in
-  [HA-Contract](https://github.com/CoreMatch/HA-Contract), in particular
+  [Armorial Contract](https://github.com/CoreMatch/HA-Contract), in particular
   `docs/dev/HRPAuth/sdk-package.md` (SDK package format, generated frontend
   contract, build policy) and `docs/dev/HRPAuth/microservices.md`
   (`/services/sdk-packages` endpoints).
-- When an entry here conflicts with HA-Contract, **fix the entry, not the
+- When an entry here conflicts with Armorial Contract, **fix the entry, not the
   contract**.
 - Entries describe the project's verified current state. Every
   claim carries evidence (a stable anchor — `file::Symbol`,

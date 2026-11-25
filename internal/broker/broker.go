@@ -1,4 +1,4 @@
-// Package broker 实现从 HRPAuth 主服务拉取 SDK 包的客户端。
+// Package broker 实现从 Armorial 主服务拉取 SDK 包的客户端。
 //
 // 职责：
 //   - 轮询 GET {base}/services/sdk-packages，携带 Ops token（Authorization: Bearer）。
@@ -6,7 +6,7 @@
 //     列表无变化时返回 304，不触发重建。
 //   - 下载 GET {base}/services/sdk-packages/{name}/download 到本地缓存。
 //
-// 本服务只从 HRPAuth 拉包，绝不直接访问卫星服务；所有鉴权由 HRPAuth 负责。
+// 本服务只从 Armorial 拉包，绝不直接访问卫星服务；所有鉴权由 Armorial 负责。
 package broker
 
 import (
@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-// SdkPackageMeta 是 HRPAuth 返回的 SDK 包元信息（列表项）。
+// SdkPackageMeta 是 Armorial 返回的 SDK 包元信息（列表项）。
 // 字段采用宽容解析，仅保证与契约相关的字段存在。
 type SdkPackageMeta struct {
 	Name       string `json:"name"`
@@ -39,7 +39,7 @@ type SdkPackageMeta struct {
 	RegisteredAt       string            `json:"registered_at,omitempty"`
 }
 
-// Client 是 HRPAuth SDK 包客户端。
+// Client 是 Armorial SDK 包客户端。
 type Client struct {
 	baseURL      string
 	clientID     string
@@ -384,7 +384,7 @@ func verifySHA256(name, expected, actual string) error {
 }
 
 // VerifyOpsCredential 验证提供的 Token 是否具有运维 (Ops/Level 2) 权限。
-// 它通过尝试调用 HRPAuth 的 /services/sdk-packages 接口来判断，
+// 它通过尝试调用 Armorial 的 /services/sdk-packages 接口来判断，
 // 如果返回 200 则认为具备权限。
 func (c *Client) VerifyOpsCredential(token string) (bool, error) {
 	reqURL := c.baseURL + "/services/sdk-packages"
@@ -396,7 +396,7 @@ func (c *Client) VerifyOpsCredential(token string) (bool, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return false, fmt.Errorf("请求 HRPAuth 验证失败: %w", err)
+		return false, fmt.Errorf("请求 Armorial 验证失败: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -406,7 +406,7 @@ func (c *Client) VerifyOpsCredential(token string) (bool, error) {
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return false, nil
 	}
-	return false, fmt.Errorf("HRPAuth 返回异常状态码: %d", resp.StatusCode)
+	return false, fmt.Errorf("Armorial 返回异常状态码: %d", resp.StatusCode)
 }
 
 func archiveSuffix(header []byte) (string, error) {

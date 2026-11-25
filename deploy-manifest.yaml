@@ -1,11 +1,11 @@
-# HA-WebUI-SDKHandler 部署声明（deploy-manifest v1）
+# Armorial WebUI SDK Handler 部署声明（deploy-manifest v1）
 # schema 依据：HA-Cupbearer internal/manifest/（SchemaVersion=1）
 manifest_version: 1
 kind: service
 project: ha-webui-sdkhandler
-display_name: HA-WebUI-SDKHandler
+display_name: Armorial WebUI SDK Handler
 group: build
-# HA-WebUI-SDKHandler 1.3.0 统一生态版本。
+# Armorial WebUI SDK Handler 1.3.0 统一生态版本。
 service_version: "1.3.0"
 
 facts:
@@ -47,7 +47,7 @@ facts:
         json_field: state
         contains: sdk_list
   depends_on:
-    # hrpauth 段：持客户端凭据轮询 HRPAuth（poll_interval_seconds），
+    # hrpauth 段：持客户端凭据轮询 Armorial（poll_interval_seconds），
     # compose depends_on hrpauth: service_healthy。
     # 无数据库、无 redis（模板无对应段，状态落 state_dir 文件）。
     - project: hrpauth

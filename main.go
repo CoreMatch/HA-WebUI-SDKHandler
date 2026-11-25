@@ -1,6 +1,6 @@
-// HA-WebUI-SDKHandler 是前端编译期 SDK 聚合器。
+// Armorial WebUI SDK Handler 是前端编译期 SDK 聚合器。
 //
-// 职责：只从 HRPAuth 主服务拉取 SDK 源码头包，注入前端模板，
+// 职责：只从 Armorial 主服务拉取 SDK 源码头包，注入前端模板，
 // 聚合生成静态前端并编译，成功后原子发布。
 //
 // 启动后进入轮询协程（hrpauth.poll_interval_seconds），发现 SDK 列表变化
@@ -502,7 +502,7 @@ func main() {
 		30*time.Second,
 	)
 	if err != nil {
-		log.Fatalf("初始化 HRPAuth 客户端失败: %v", err)
+		log.Fatalf("初始化 Armorial 客户端失败: %v", err)
 	}
 
 	a := &app{
@@ -521,10 +521,10 @@ func main() {
 
 	// 项目启动时打印 SDK 列表。
 	if pkgs, err := client.Peek(); err == nil {
-		log.Println("项目启动，初始 SDK 列表:")
+		log.Println("Armorial WebUI SDK Handler 启动，初始 SDK 列表:")
 		printSDKList(pkgs)
 	} else {
-		log.Printf("项目启动时获取 SDK 列表失败: %v", err)
+		log.Printf("Armorial WebUI SDK Handler 启动时获取 SDK 列表失败: %v", err)
 	}
 
 	// 启动前检查并拉取模板
@@ -595,7 +595,7 @@ func main() {
 		cancel()
 	}()
 
-	log.Printf("HA-WebUI-SDKHandler 启动，监听 %s（轮询间隔 %ds）",
+	log.Printf("Armorial WebUI SDK Handler 启动，监听 %s（轮询间隔 %ds）",
 		cfg.Server.ListenAddr, cfg.HRPAuth.PollIntervalSeconds)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("HTTP 服务异常退出: %v", err)
