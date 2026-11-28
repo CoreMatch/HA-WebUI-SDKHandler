@@ -1,4 +1,4 @@
-# 0002 — Injection Overwrites `src/generated/` (Five Mount Points)
+# 0002 — Injection Overwrites `src/generated/` (Six Mount Points)
 
 ## Status
 
@@ -33,8 +33,8 @@ Every build performs a **full, non-incremental injection**:
 6. All `manifest.dependencies` are merged into the work directory's
    `package.json`; template dependencies fill the rest
    (`internal/inject/inject.go::writePackageJSON`).
-7. Six glue files are (re)generated under `src/generated/`
-   (`internal/inject/generate.go::writeSDKRoutes` and five sibling `writeSDK*` writers):
+7. Seven glue files are (re)generated under `src/generated/`
+   (`internal/inject/generate.go::writeSDKRoutes` and six sibling `writeSDK*` writers):
 
 | Generated file | Host mount point (consumer) |
 |---|---|
@@ -43,9 +43,10 @@ Every build performs a **full, non-incremental injection**:
 | `sdk-dashboard.tsx` | `Dashboard.tsx` |
 | `sdk-critical-operations.ts` | `AccountSecurity.tsx` |
 | `sdk-profile-cards.tsx` | `Profile.tsx` |
+| `sdk-contributions.tsx` | `SdkContributions.tsx` (surface-based renderer) |
 | `sdk-manifest.ts` | diagnostics/metadata (not a mount point) |
 
-The five mount points are the five host components above; `sdk-manifest.ts`
+The six mount points are the six host components above; `sdk-manifest.ts`
 is metadata only. This matches the contract table (HA-Contract
 `docs/dev/HRPAuth/sdk-package.md`, "Generated Frontend Contract"). Type
 contracts come from `src/types/generated-sdk.ts` in the template repo
@@ -56,24 +57,19 @@ contracts come from `src/types/generated-sdk.ts` in the template repo
 
 - Hand-editing anything under `src/generated/` in the template is pointless:
   the files are overwritten on every build.
-- An empty SDK list still produces a build: all six files are generated with
+- An empty SDK list still produces a build: all seven files are generated with
   empty arrays (commit `7461931`).
-- Mount-point additions beyond the five above require changes in both the
-  handler (new writer) and the template (new consumer), plus a contract
-  update. Profile cards (`dc0926e`) and critical operations (`958961c`) were
-  added this way.
-- The handler's local manifest validation is slightly looser than the
-  contract's upload-time rule: it accepts a package when at least one of
-  `routes`/`profile_cards` is non-empty
-  (`internal/inject/manifest.go::ValidateManifest`), while the contract says HRPAuth
-  rejects uploads with empty `routes` regardless of `profile_cards`
-  (sdk-package.md, Field Reference for `routes`). The handler never sees such
-  packages if HRPAuth enforces its rule; the difference is recorded as-is.
+- New contribution surfaces require changes in both the handler (validation
+  and generated registry) and the template (surface renderer), plus a contract
+  update. Adding another provider for an existing surface only requires a new
+  manifest contribution.
+- The handler and Armorial upload validation both accept a package when at least
+  one of `routes` / `profile_cards` / `contributions` is non-empty.
 
 ## Evidence
 
 - `internal/inject/inject.go::Inject` — full injection flow.
-- `internal/inject/generate.go::writeSDKRoutes` (+5 sibling `writeSDK*` writers) — the six writers and file names.
+- `internal/inject/generate.go::writeSDKRoutes` (+6 sibling `writeSDK*` writers) — the seven writers and file names.
 - `internal/inject/copy.go::copyExcluded` — copy exclusion set (no `node_modules`).
 - `internal/inject/extract.go::sanitizeArchivePath` — archive path sanitization.
 - `internal/inject/rewrite.go::RewriteHostImports` — host import rewriting.

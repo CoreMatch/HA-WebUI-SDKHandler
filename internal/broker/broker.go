@@ -36,6 +36,7 @@ type SdkPackageMeta struct {
 	// RawMessage 宽容接收，避免列表解析因诊断字段变化而失败。
 	Routes             []json.RawMessage `json:"routes,omitempty"`
 	CriticalOperations []json.RawMessage `json:"critical_operations,omitempty"`
+	Contributions      []json.RawMessage `json:"contributions,omitempty"`
 	RegisteredAt       string            `json:"registered_at,omitempty"`
 }
 

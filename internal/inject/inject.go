@@ -175,6 +175,9 @@ func Inject(opts Options) (*Result, error) {
 	if err := writeSDKProfileCards(generatedDir, res.SDKs); err != nil {
 		return nil, err
 	}
+	if err := writeSDKContributions(generatedDir, res.SDKs); err != nil {
+		return nil, err
+	}
 
 	// 5. SDK 集合摘要。
 	res.SDKVersion = fingerprintSDKs(res.SDKList, res.ManifestSums)

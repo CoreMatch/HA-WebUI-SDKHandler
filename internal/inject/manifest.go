@@ -4,12 +4,13 @@
 //  1. 把只读模板目录 template_dir 全量复制到本次构建的 work_dir。
 //  2. 解包每个 SDK 归档到 work_dir/src/generated/services/<name>/，
 //     解包时做路径安全校验（拒绝 ..、绝对路径、symlink/hardlink）。
-//  3. 校验各包 manifest.json（schema_version=1、name 合法、routes/profile_cards 契约等），
+//  3. 校验各包 manifest.json（schema_version=1、name 合法、routes/profile_cards/contributions 契约等），
 //     记录校验结果。
 //  4. 合并所有 manifest.dependencies 到 work_dir/package.json（deep merge）。
 //  5. 在 work_dir/src/generated/ 下生成聚合文件：
 //     sdk-manifest.ts / sdk-routes.tsx / sdk-navbar.tsx /
-//     sdk-dashboard.tsx / sdk-critical-operations.ts / sdk-profile-cards.tsx。
+//     sdk-dashboard.tsx / sdk-critical-operations.ts / sdk-profile-cards.tsx /
+//     sdk-contributions.tsx。
 package inject
 
 import (
@@ -22,18 +23,30 @@ import (
 // SchemaVersion 是当前支持的 manifest 版本。
 const SchemaVersion = 1
 
+const ContributionSurfaceRegisterProviders = "register.providers"
+
+// ContributionEntry 是 manifest.contributions 项。
+type ContributionEntry struct {
+	ID       string `json:"id"`
+	Surface  string `json:"surface"`
+	Module   string `json:"module"`
+	Label    string `json:"label,omitempty"`
+	Priority *int   `json:"priority,omitempty"`
+}
+
 // Manifest 对应 SDK 包根目录的 manifest.json，字段与契约一一对应。
 type Manifest struct {
-	SchemaVersion      int                `json:"schema_version"`
-	Name               string             `json:"name"`
-	Version            string             `json:"version"`
-	Routes             []RouteEntry       `json:"routes"`
-	Menu               MenuEntries        `json:"menu,omitempty"`
-	Dashboard          MenuEntries        `json:"dashboard,omitempty"`
-	CriticalOperations MenuEntries        `json:"critical_operations,omitempty"`
-	ProfileCards       ProfileCardEntries `json:"profile_cards,omitempty"`
-	Dependencies       map[string]string  `json:"dependencies,omitempty"`
-	RunScripts         bool               `json:"run_scripts"`
+	SchemaVersion      int                 `json:"schema_version"`
+	Name               string              `json:"name"`
+	Version            string              `json:"version"`
+	Routes             []RouteEntry        `json:"routes"`
+	Menu               MenuEntries         `json:"menu,omitempty"`
+	Dashboard          MenuEntries         `json:"dashboard,omitempty"`
+	CriticalOperations MenuEntries         `json:"critical_operations,omitempty"`
+	ProfileCards       ProfileCardEntries  `json:"profile_cards,omitempty"`
+	Contributions      []ContributionEntry `json:"contributions,omitempty"`
+	Dependencies       map[string]string   `json:"dependencies,omitempty"`
+	RunScripts         bool                `json:"run_scripts"`
 }
 
 // RouteEntry 是 manifest.routes 中的一项。
@@ -126,8 +139,8 @@ func ValidateManifest(m *Manifest) []string {
 	if !versionPattern.MatchString(m.Version) {
 		errs = append(errs, "version 必须为 major.minor.patch 语义版本")
 	}
-	if len(m.Routes) == 0 && len(m.ProfileCards) == 0 {
-		errs = append(errs, "routes 与 profile_cards 不能同时为空")
+	if len(m.Routes) == 0 && len(m.ProfileCards) == 0 && len(m.Contributions) == 0 {
+		errs = append(errs, "routes、profile_cards 与 contributions 不能同时为空")
 	}
 	for i, r := range m.Routes {
 		if err := validateRoutePath(r.Path); err != "" {
@@ -167,6 +180,25 @@ func ValidateManifest(m *Manifest) []string {
 		}
 		if err := validateModulePath(pc.Module); err != "" {
 			errs = append(errs, fmt.Sprintf("profile_cards[%d].module 非法: %s", i, err))
+		}
+	}
+	contributionIDs := make(map[string]bool, len(m.Contributions))
+	for i, contribution := range m.Contributions {
+		if !namePattern.MatchString(contribution.ID) || len(contribution.ID) > 64 {
+			errs = append(errs, fmt.Sprintf("contributions[%d].id 必须匹配 [a-z0-9]([a-z0-9-]*[a-z0-9])? 且不超过 64 字符", i))
+		}
+		if contributionIDs[contribution.ID] {
+			errs = append(errs, fmt.Sprintf("contributions[%d].id 重复: %s", i, contribution.ID))
+		}
+		contributionIDs[contribution.ID] = true
+		if contribution.Surface != ContributionSurfaceRegisterProviders {
+			errs = append(errs, fmt.Sprintf("contributions[%d].surface 不支持: %s", i, contribution.Surface))
+		}
+		if strings.TrimSpace(contribution.Label) == "" {
+			errs = append(errs, fmt.Sprintf("contributions[%d].label 必填", i))
+		}
+		if err := validateModulePath(contribution.Module); err != "" {
+			errs = append(errs, fmt.Sprintf("contributions[%d].module 非法: %s", i, err))
 		}
 	}
 	return errs

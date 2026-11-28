@@ -129,17 +129,64 @@ func TestValidateManifestNeedsRoutesOrProfileCards(t *testing.T) {
 
 	errs := ValidateManifest(m)
 	if len(errs) == 0 {
-		t.Fatalf("expected errors when routes and profile_cards are both empty")
+		t.Fatalf("expected errors when routes, profile_cards and contributions are all empty")
 	}
 
 	found := false
 	for _, err := range errs {
-		if err == "routes 与 profile_cards 不能同时为空" {
+		if err == "routes、profile_cards 与 contributions 不能同时为空" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected routes/profile_cards empty error, got %v", errs)
+		t.Fatalf("expected empty contribution error, got %v", errs)
+	}
+}
+
+func TestValidateManifestContributions(t *testing.T) {
+	priority := 10
+	m := &Manifest{
+		SchemaVersion: 1,
+		Name:          "register-providers",
+		Version:       "1.0.0",
+		Contributions: []ContributionEntry{
+			{
+				ID:       "github",
+				Surface:  ContributionSurfaceRegisterProviders,
+				Module:   "src/register/GitHubButton",
+				Label:    "GitHub",
+				Priority: &priority,
+			},
+		},
+	}
+
+	if errs := ValidateManifest(m); len(errs) > 0 {
+		t.Fatalf("expected contribution-only manifest to be valid, got %v", errs)
+	}
+
+	m.Contributions[0].Surface = "unknown.surface"
+	m.Contributions[0].Module = "../escape"
+	m.Contributions[0].Label = " "
+	errs := ValidateManifest(m)
+	if len(errs) != 3 {
+		t.Fatalf("expected surface, module and label errors, got %v", errs)
+	}
+}
+
+func TestValidateManifestRejectsDuplicateContributionIDs(t *testing.T) {
+	m := &Manifest{
+		SchemaVersion: 1,
+		Name:          "register-providers",
+		Version:       "1.0.0",
+		Contributions: []ContributionEntry{
+			{ID: "github", Surface: ContributionSurfaceRegisterProviders, Module: "src/GitHub", Label: "GitHub"},
+			{ID: "github", Surface: ContributionSurfaceRegisterProviders, Module: "src/GitHubAlt", Label: "GitHub Alt"},
+		},
+	}
+
+	errs := ValidateManifest(m)
+	if len(errs) != 1 {
+		t.Fatalf("expected one duplicate ID error, got %v", errs)
 	}
 }

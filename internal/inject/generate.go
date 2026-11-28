@@ -102,6 +102,20 @@ func writeSDKManifest(dir string, sdks []*Sdk) error {
 			}
 			b.WriteString("    ],\n")
 		}
+		if len(m.Contributions) > 0 {
+			b.WriteString("    contributions: [\n")
+			for _, contribution := range m.Contributions {
+				b.WriteString("      { id: " + jsString(contribution.ID) + ", surface: " + jsString(contribution.Surface) + ", module: " + jsString(contribution.Module))
+				if contribution.Label != "" {
+					b.WriteString(", label: " + jsString(contribution.Label))
+				}
+				if contribution.Priority != nil {
+					b.WriteString(", priority: " + fmt.Sprintf("%d", *contribution.Priority))
+				}
+				b.WriteString(" },\n")
+			}
+			b.WriteString("    ],\n")
+		}
 		b.WriteString("    runScripts: " + boolLit(sdkManifestRunScripts(m)) + ",\n")
 		b.WriteString("    sha256: " + jsString(sdk.SHA256) + ",\n")
 		b.WriteString("  },\n")
@@ -370,6 +384,77 @@ func writeSDKProfileCards(dir string, sdks []*Sdk) error {
 	}
 	b.WriteString("];\n")
 	return writeGenerated(dir, "sdk-profile-cards.tsx", b.String())
+}
+
+// writeSDKContributions 生成 sdk-contributions.tsx：
+// 所有 manifest.contributions 的统一注册表，宿主按 surface 查询并渲染。
+func writeSDKContributions(dir string, sdks []*Sdk) error {
+	var b strings.Builder
+	b.WriteString("// 本文件由 Armorial WebUI SDK Handler 自动生成，请勿手工修改。\n")
+
+	hasContributions := false
+	for _, sdk := range sdks {
+		if len(sdk.Manifest.Contributions) > 0 {
+			hasContributions = true
+			break
+		}
+	}
+	if hasContributions {
+		b.WriteString("import { lazy } from 'react';\n")
+	}
+	b.WriteString("import type { SdkContributionItem } from '../types/generated-sdk';\n\n")
+
+	if hasContributions {
+		for _, sdk := range sdks {
+			for i, contribution := range sdk.Manifest.Contributions {
+				ident := componentIdent("SdkContribution", sdk.Name, fmt.Sprintf("%d", i))
+				b.WriteString("const " + ident + " = lazy(() => import(" + jsString(moduleRef(sdk.Name, contribution.Module)) + "));\n")
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("export const sdkContributions: SdkContributionItem[] = [\n")
+	loadOrder := 0
+	if hasContributions {
+		for _, sdk := range sdks {
+			for i, contribution := range sdk.Manifest.Contributions {
+				ident := componentIdent("SdkContribution", sdk.Name, fmt.Sprintf("%d", i))
+				b.WriteString("  {\n")
+				b.WriteString("    key: " + jsString(sdk.Name+":"+contribution.ID) + ",\n")
+				b.WriteString("    service: " + jsString(sdk.Name) + ",\n")
+				b.WriteString("    id: " + jsString(contribution.ID) + ",\n")
+				b.WriteString("    surface: " + jsString(contribution.Surface) + ",\n")
+				if contribution.Label != "" {
+					b.WriteString("    label: " + jsString(contribution.Label) + ",\n")
+				}
+				if contribution.Priority != nil {
+					b.WriteString("    priority: " + fmt.Sprintf("%d", *contribution.Priority) + ",\n")
+				}
+				b.WriteString("    loadOrder: " + fmt.Sprintf("%d", loadOrder) + ",\n")
+				b.WriteString("    element: <" + ident + " />,\n")
+				b.WriteString("  },\n")
+				loadOrder++
+			}
+		}
+	}
+	b.WriteString("];\n\n")
+	b.WriteString("export function sdkContributionsForSurface(surface: string): SdkContributionItem[] {\n")
+	b.WriteString("  return sdkContributions\n")
+	b.WriteString("    .filter((contribution) => contribution.surface === surface)\n")
+	b.WriteString("    .sort((a, b) => {\n")
+	b.WriteString("      const aHasPriority = typeof a.priority === 'number';\n")
+	b.WriteString("      const bHasPriority = typeof b.priority === 'number';\n")
+	b.WriteString("      if (aHasPriority && bHasPriority && a.priority !== b.priority) {\n")
+	b.WriteString("        return (b.priority as number) - (a.priority as number);\n")
+	b.WriteString("      }\n")
+	b.WriteString("      if (aHasPriority !== bHasPriority) {\n")
+	b.WriteString("        return aHasPriority ? -1 : 1;\n")
+	b.WriteString("      }\n")
+	b.WriteString("      return a.loadOrder - b.loadOrder;\n")
+	b.WriteString("    });\n")
+	b.WriteString("}\n")
+	return writeGenerated(dir, "sdk-contributions.tsx", b.String())
 }
 
 // moduleForPath 返回 manifest 中匹配指定路由 path 的 module 路径。

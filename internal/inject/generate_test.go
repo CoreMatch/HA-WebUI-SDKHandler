@@ -203,6 +203,66 @@ func TestWriteSDKProfileCardsSortMetadata(t *testing.T) {
 	}
 }
 
+func TestWriteSDKContributions(t *testing.T) {
+	dir := t.TempDir()
+	priority := 20
+	err := writeSDKContributions(dir, []*Sdk{
+		{
+			Name: "identity-providers",
+			Manifest: &Manifest{
+				Name:    "identity-providers",
+				Version: "1.0.0",
+				Contributions: []ContributionEntry{
+					{ID: "github", Surface: ContributionSurfaceRegisterProviders, Module: "src/register/GitHubButton", Label: "GitHub", Priority: &priority},
+					{ID: "discord", Surface: ContributionSurfaceRegisterProviders, Module: "src/register/DiscordButton", Label: "Discord"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("writeSDKContributions returned error: %v", err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, "sdk-contributions.tsx"))
+	if err != nil {
+		t.Fatalf("read generated file: %v", err)
+	}
+	got := string(raw)
+	for _, want := range []string{
+		"const SdkContributionIdentityProviders0 = lazy",
+		"const SdkContributionIdentityProviders1 = lazy",
+		`key: "identity-providers:github"`,
+		`surface: "register.providers"`,
+		`label: "GitHub"`,
+		"priority: 20",
+		"loadOrder: 0",
+		"loadOrder: 1",
+		"export function sdkContributionsForSurface",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("generated contributions missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestWriteSDKContributionsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	if err := writeSDKContributions(dir, []*Sdk{}); err != nil {
+		t.Fatalf("writeSDKContributions returned error: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "sdk-contributions.tsx"))
+	if err != nil {
+		t.Fatalf("read generated file: %v", err)
+	}
+	got := string(raw)
+	if strings.Contains(got, "import { lazy }") {
+		t.Errorf("empty contributions should not import lazy:\n%s", got)
+	}
+	if !strings.Contains(got, "export const sdkContributions: SdkContributionItem[] = [\n];") {
+		t.Errorf("empty contributions should contain an empty array:\n%s", got)
+	}
+}
+
 func TestWriteSDKEmpty(t *testing.T) {
 	dir := t.TempDir()
 
